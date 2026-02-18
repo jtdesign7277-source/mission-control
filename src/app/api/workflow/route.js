@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, existsSync } from 'fs';
 
+export const dynamic = 'force-dynamic';
+
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -34,7 +36,7 @@ function getETNow() {
 }
 
 function parseCronField(field) {
-  if (field === '*') return null;
+  if (!field || field === '*') return null;
   if (field.startsWith('*/')) return { step: parseInt(field.slice(2)) };
   if (field.includes(',')) return { list: field.split(',').map(Number) };
   if (field.includes('-')) { const [a, b] = field.split('-').map(Number); return { range: [a, b] }; }
@@ -42,6 +44,7 @@ function parseCronField(field) {
 }
 
 function getNextRun(expr, now) {
+  if (!expr || !expr.includes(' ')) return new Date(now.getTime() + 3600000);
   const [minF, hourF, , , dowF] = expr.split(' ');
   const min = parseCronField(minF);
   const hour = parseCronField(hourF);
