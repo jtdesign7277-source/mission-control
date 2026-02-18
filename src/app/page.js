@@ -32,7 +32,7 @@ import ChatBar from '@/components/ChatBar';
 import BrainDump from '@/components/BrainDump';
 import WorkflowBoard from '@/components/WorkflowBoard';
 import WeatherEffects from '@/components/WeatherEffects';
-import WeatherWidget from '@/components/WeatherWidget';
+import { WeatherHeaderBackground, WeatherInfo } from '@/components/WeatherWidget';
 import CommunityHub from '@/components/CommunityHub';
 
 const VIEW_TABS = [
@@ -984,20 +984,21 @@ export default function MissionControlPage() {
     <main className="min-h-screen bg-transparent px-6 py-6 text-zinc-100">
       <WeatherEffects condition={weather?.condition} isDay={weather?.isDay} />
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
-        <header className="rounded-2xl border border-white/10 bg-gradient-to-r from-[#0b1220] via-[#0d1527] to-[#111a31] p-5 shadow-[0_0_80px_rgba(34,197,94,0.06)]">
-          <div className="flex items-start justify-between mb-3">
-            <p className="text-[11px] uppercase tracking-[0.35em] text-zinc-500 pt-1">Mission Control</p>
-            <div className="flex items-end gap-5 font-mono">
-              <WeatherWidget weather={weather} />
+        <header className="relative overflow-hidden rounded-2xl border border-white/10 p-5 shadow-[0_0_80px_rgba(34,197,94,0.06)]">
+          <WeatherHeaderBackground condition={weather?.condition} isDay={weather?.isDay} />
+          <div className="relative z-10 flex items-start justify-between mb-3">
+            <p className="text-[11px] uppercase tracking-[0.35em] text-white/50 pt-1">Mission Control</p>
+            <div className="flex items-end gap-5">
+              <WeatherInfo weather={weather} />
               <div className="text-right">
                 <LiveClock />
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-semibold text-zinc-50">Automation Command Center</h1>
-              <p className="mt-1 text-sm text-zinc-400">
+              <h1 className="text-3xl font-semibold text-white drop-shadow-sm">Automation Command Center</h1>
+              <p className="mt-1 text-sm text-white/60">
                 Unified operations for activity streams, deployments, inbox automation, and secure API vault.
               </p>
             </div>
