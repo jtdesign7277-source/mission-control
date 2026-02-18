@@ -44,22 +44,35 @@ function getIcon(condition, isDay) {
 export async function GET() {
   try {
     const url =
-      'https://api.open-meteo.com/v1/forecast?latitude=42.36&longitude=-71.06&current_weather=true&timezone=America/New_York';
+      'https://api.open-meteo.com/v1/forecast?latitude=42.36&longitude=-71.06&current_weather=true&current=apparent_temperature,relative_humidity_2m,wind_direction_10m&timezone=America/New_York';
     const res = await fetch(url, { next: { revalidate: 300 } });
     const data = await res.json();
     const cw = data.current_weather;
+    const current = data.current || {};
 
     const weathercode = cw.weathercode ?? 0;
     const mapped = WMO_MAP[weathercode] || { condition: 'clear', description: 'Unknown' };
     const isDay = cw.is_day === 1;
     const temperatureF = Math.round(cw.temperature * 9 / 5 + 32);
+    const apparentTemperatureF = Number.isFinite(current.apparent_temperature)
+      ? Math.round(current.apparent_temperature * 9 / 5 + 32)
+      : temperatureF;
+    const humidity = Number.isFinite(current.relative_humidity_2m)
+      ? Math.round(current.relative_humidity_2m)
+      : null;
+    const windDirection = Number.isFinite(current.wind_direction_10m)
+      ? Math.round(current.wind_direction_10m)
+      : (Number.isFinite(cw.winddirection) ? Math.round(cw.winddirection) : null);
 
     return Response.json({
       temperature: temperatureF,
+      feelsLike: apparentTemperatureF,
+      humidity,
       condition: mapped.condition,
       isDay,
       weathercode,
       windspeed: cw.windspeed,
+      windDirection,
       icon: getIcon(mapped.condition, isDay),
       description: mapped.description,
     });

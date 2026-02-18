@@ -32,6 +32,7 @@ import ChatBar from '@/components/ChatBar';
 import BrainDump from '@/components/BrainDump';
 import WorkflowBoard from '@/components/WorkflowBoard';
 import WeatherEffects from '@/components/WeatherEffects';
+import WeatherWidget from '@/components/WeatherWidget';
 import CommunityHub from '@/components/CommunityHub';
 
 const VIEW_TABS = [
@@ -987,11 +988,7 @@ export default function MissionControlPage() {
           <div className="flex items-start justify-between mb-3">
             <p className="text-[11px] uppercase tracking-[0.35em] text-zinc-500 pt-1">Mission Control</p>
             <div className="flex items-end gap-5 font-mono">
-              {weather && (
-                <div className="text-right">
-                  <p className="text-xs text-zinc-400">{weather.icon} {weather.temperature}°F · {weather.description} · Boston</p>
-                </div>
-              )}
+              <WeatherWidget weather={weather} />
               <div className="text-right">
                 <LiveClock />
               </div>
