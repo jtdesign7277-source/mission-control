@@ -101,7 +101,7 @@ export default function CommunityHub() {
             </li>
             <li className="flex gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-bold text-indigo-400">5</span>
-              <span>Tell Fred the Server ID + invite link → he'll wire everything up</span>
+              <span>Tell Fred the Server ID + invite link and he&apos;ll wire everything up</span>
             </li>
           </ol>
         </div>
