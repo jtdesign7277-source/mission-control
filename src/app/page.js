@@ -31,7 +31,7 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import ChatBar from '@/components/ChatBar';
 import BrainDump from '@/components/BrainDump';
 import WorkflowBoard from '@/components/WorkflowBoard';
-import WeatherEffects from '@/components/WeatherEffects';
+// WeatherEffects removed — weather visuals contained in header only
 import { WeatherHeaderBackground, WeatherInfo } from '@/components/WeatherWidget';
 import CommunityHub from '@/components/CommunityHub';
 
@@ -982,7 +982,7 @@ export default function MissionControlPage() {
 
   return (
     <main className="min-h-screen bg-transparent px-6 py-6 text-zinc-100">
-      <WeatherEffects condition={weather?.condition} isDay={weather?.isDay} />
+      {/* WeatherEffects removed */}
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
         <header className="relative overflow-hidden rounded-2xl border border-white/10 p-5 shadow-[0_0_80px_rgba(34,197,94,0.06)]">
           <WeatherHeaderBackground condition={weather?.condition} isDay={weather?.isDay} />
