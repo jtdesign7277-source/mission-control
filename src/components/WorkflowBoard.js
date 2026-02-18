@@ -24,7 +24,7 @@ function timeAgo(iso) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function JobCard({ job, pendingActions, onAction }) {
+function JobCard({ job, pendingActions, onAction, isSelected, onSelect }) {
   const diffMs = new Date(job.nextRun).getTime() - Date.now();
   const isSoon = diffMs < 30 * 60 * 1000 && diffMs > 0;
   const cat = CATEGORY_STYLES[job.category] || CATEGORY_STYLES.system;
@@ -39,7 +39,8 @@ function JobCard({ job, pendingActions, onAction }) {
 
   return (
     <div
-      className={`rounded-xl border border-white/10 bg-black/25 p-3 flex flex-col gap-1.5 transition-opacity ${!isEnabled ? 'opacity-60' : ''}`}
+      onClick={() => onSelect?.(job.id)}
+      className={`rounded-xl border ${isSelected ? 'border-emerald-400/40 shadow-[0_0_12px_rgba(52,211,153,0.15)]' : 'border-white/10'} bg-black/25 p-3 flex flex-col gap-1.5 transition-all cursor-pointer hover:border-white/20 ${!isEnabled ? 'opacity-60' : ''}`}
       style={{ borderLeft: `3px solid ${job.color}` }}
     >
       <div className="flex items-center gap-2">
@@ -142,6 +143,9 @@ export default function WorkflowBoard() {
   const [social, setSocial] = useState([]);
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedJobId, setSelectedJobId] = useState(null);
+  const [jobRuns, setJobRuns] = useState([]);
+  const [runsLoading, setRunsLoading] = useState(false);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -189,6 +193,29 @@ export default function WorkflowBoard() {
     }
   };
 
+  const handleSelectJob = async (jobId) => {
+    if (selectedJobId === jobId) {
+      setSelectedJobId(null);
+      setJobRuns([]);
+      return;
+    }
+    setSelectedJobId(jobId);
+    setJobRuns([]);
+    setRunsLoading(true);
+    try {
+      const res = await fetch(`/api/workflow/runs?jobId=${jobId}`);
+      const data = await res.json();
+      setJobRuns(data.runs || []);
+    } catch (e) {
+      console.error('Failed to fetch runs:', e);
+      setJobRuns([]);
+    } finally {
+      setRunsLoading(false);
+    }
+  };
+
+  const selectedJob = jobs.find(j => j.id === selectedJobId);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-zinc-500 text-sm">
@@ -207,9 +234,10 @@ export default function WorkflowBoard() {
   );
 
   return (
+    <div className="flex flex-col gap-0">
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
       <Column title="⏳ Up Next" header={syncHeader}>
-        {jobs.map(job => <JobCard key={job.id} job={job} pendingActions={pendingActions} onAction={handleAction} />)}
+        {jobs.map(job => <JobCard key={job.id} job={job} pendingActions={pendingActions} onAction={handleAction} isSelected={selectedJobId === job.id} onSelect={handleSelectJob} />)}
         {jobs.length === 0 && <p className="text-zinc-600 text-xs px-1">No scheduled jobs</p>}
       </Column>
 
@@ -227,6 +255,59 @@ export default function WorkflowBoard() {
         {trades.map((doc, i) => <DocCard key={doc.id || i} doc={doc} borderColor="#10b981" />)}
         {trades.length === 0 && <p className="text-zinc-600 text-xs px-1">No recent trades</p>}
       </Column>
+    </div>
+
+    {/* Job Run Detail Panel */}
+    {selectedJob && (
+      <div className="rounded-2xl border border-white/10 bg-black/30 p-4 mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{selectedJob.icon}</span>
+            <span className="font-semibold text-zinc-100">{selectedJob.name}</span>
+            <span className="text-zinc-500 text-sm">— Recent Runs</span>
+          </div>
+          <button onClick={() => { setSelectedJobId(null); setJobRuns([]); }} className="text-zinc-400 hover:text-zinc-200 text-lg leading-none px-2">✕</button>
+        </div>
+
+        <div className="flex items-center gap-3 mb-4 flex-wrap text-[11px]">
+          <span className="bg-white/5 border border-white/10 text-zinc-300 px-2 py-0.5 rounded-full">{selectedJob.agent}</span>
+          <span className="text-zinc-500">{selectedJob.schedule}</span>
+          {selectedJob.last_status && (
+            <span className={`px-2 py-0.5 rounded-full ${selectedJob.last_status === 'ok' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+              {selectedJob.last_status.toUpperCase()}
+            </span>
+          )}
+          {(selectedJob.consecutive_errors || 0) > 0 && (
+            <span className="bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full">{selectedJob.consecutive_errors} consecutive errors</span>
+          )}
+        </div>
+
+        {runsLoading && (
+          <div className="flex items-center gap-2 text-zinc-500 text-sm py-4">
+            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+            Loading runs…
+          </div>
+        )}
+
+        {!runsLoading && jobRuns.length === 0 && (
+          <p className="text-zinc-500 text-sm py-4">No recent outputs for this job</p>
+        )}
+
+        {!runsLoading && jobRuns.map((run, i) => (
+          <div key={run.id || i} className="rounded-xl border border-white/10 bg-black/20 p-4 mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="font-semibold text-sm text-zinc-100">{run.title}</p>
+              {run.createdAt && <span className="text-[11px] text-zinc-500">{timeAgo(run.createdAt)}</span>}
+            </div>
+            {run.content && (
+              <div className="max-h-[400px] overflow-y-auto text-xs font-mono text-zinc-300 whitespace-pre-wrap bg-black/40 rounded-lg p-3 mt-2">
+                {run.content}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
     </div>
   );
 }
