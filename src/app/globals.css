@@ -41,3 +41,42 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Weather effects */
+@keyframes rainfall {
+  0% { transform: translateY(-100vh) translateX(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 0.7; }
+  100% { transform: translateY(100vh) translateX(-20px); opacity: 0; }
+}
+
+@keyframes snowfall {
+  0% { transform: translateY(-10vh) translateX(0) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 0.8; }
+  100% { transform: translateY(100vh) translateX(30px) rotate(360deg); opacity: 0; }
+}
+
+@keyframes lightning {
+  0%, 100% { opacity: 0; background: rgba(255,255,255,0); }
+  5% { opacity: 1; background: rgba(255,255,255,0.8); }
+  10% { opacity: 0.1; background: rgba(255,255,255,0.1); }
+  15% { opacity: 0.6; background: rgba(255,255,255,0.6); }
+  20% { opacity: 0; background: rgba(255,255,255,0); }
+}
+
+@keyframes cloud-drift {
+  0% { transform: translateX(-20%); }
+  100% { transform: translateX(120vw); }
+}
+
+@keyframes fog-drift {
+  0% { transform: translateX(-10%); opacity: 0.3; }
+  50% { opacity: 0.5; }
+  100% { transform: translateX(10%); opacity: 0.3; }
+}
+
+@keyframes sun-pulse {
+  0%, 100% { opacity: 0.15; transform: scale(1); }
+  50% { opacity: 0.25; transform: scale(1.05); }
+}

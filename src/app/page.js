@@ -31,6 +31,7 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import ChatBar from '@/components/ChatBar';
 import BrainDump from '@/components/BrainDump';
 import WorkflowBoard from '@/components/WorkflowBoard';
+import WeatherEffects from '@/components/WeatherEffects';
 
 const VIEW_TABS = [
   { id: 'split', label: 'Split' },
@@ -324,9 +325,19 @@ export default function MissionControlPage() {
   const [keyForm, setKeyForm] = useState(EMPTY_KEY_FORM);
   const [keySaving, setKeySaving] = useState(false);
 
+  const [weather, setWeather] = useState(null);
+
   const supabaseReady = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
+
+  const fetchWeather = useCallback(async () => {
+    try {
+      const res = await fetch('/api/weather', { cache: 'no-store' });
+      const data = await res.json();
+      if (res.ok) setWeather(data);
+    } catch {}
+  }, []);
 
   const fetchDeployments = useCallback(async () => {
     setDeploymentsLoading(true);
@@ -709,6 +720,12 @@ export default function MissionControlPage() {
   }, [composeForm, contacts, fetchContacts, fetchInbox]);
 
   useEffect(() => {
+    fetchWeather();
+    const timer = setInterval(fetchWeather, 900000);
+    return () => clearInterval(timer);
+  }, [fetchWeather]);
+
+  useEffect(() => {
     fetchDeployments();
     const timer = setInterval(fetchDeployments, DEPLOYMENT_REFRESH_MS);
     return () => clearInterval(timer);
@@ -946,11 +963,20 @@ export default function MissionControlPage() {
 
   return (
     <main className="min-h-screen bg-transparent px-6 py-6 text-zinc-100">
+      <WeatherEffects condition={weather?.condition} isDay={weather?.isDay} />
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
         <header className="rounded-2xl border border-white/10 bg-gradient-to-r from-[#0b1220] via-[#0d1527] to-[#111a31] p-5 shadow-[0_0_80px_rgba(34,197,94,0.06)]">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[11px] uppercase tracking-[0.35em] text-zinc-500">Mission Control</p>
-            <LiveClock />
+            <div className="flex items-center gap-4">
+              {weather && (
+                <span className="text-xs text-zinc-400">
+                  <span className="text-sm">{weather.icon}</span>{' '}
+                  {weather.temperature}°F · {weather.description} · Boston
+                </span>
+              )}
+              <LiveClock />
+            </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
