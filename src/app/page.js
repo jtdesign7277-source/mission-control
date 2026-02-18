@@ -32,6 +32,7 @@ import ChatBar from '@/components/ChatBar';
 import BrainDump from '@/components/BrainDump';
 import WorkflowBoard from '@/components/WorkflowBoard';
 import WeatherEffects from '@/components/WeatherEffects';
+import CommunityHub from '@/components/CommunityHub';
 
 const VIEW_TABS = [
   { id: 'split', label: 'Split' },
@@ -43,6 +44,7 @@ const VIEW_TABS = [
   { id: 'keys', label: 'Keys' },
   { id: 'workflow', label: 'Workflow' },
   { id: 'braindump', label: 'Brain Dump' },
+  { id: 'community', label: 'Community' },
 ];
 
 const STATUS_COLORS = {
@@ -1761,6 +1763,7 @@ export default function MissionControlPage() {
         )}
         {activeView === 'workflow' && <WorkflowBoard />}
         {activeView === 'braindump' && <BrainDump />}
+        {activeView === 'community' && <CommunityHub />}
       </div>
 
       {composeOpen && (
