@@ -1207,8 +1207,38 @@ export default function MissionControlPage() {
             </div>
           </>
         );
-      case 'kanban':
       case 'keys':
+        return (
+          <>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <KeyRound className="h-4 w-4 text-amber-300" />
+                API Keys
+              </h2>
+              <div className="flex gap-2">
+                <button type="button" onClick={openCreateKey} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-white/5">
+                  <Plus className="h-3.5 w-3.5" /> Add
+                </button>
+                <button type="button" onClick={fetchKeys} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/5">
+                  <RefreshCw className={`h-3.5 w-3.5 ${keysLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {keys.map((item) => (
+                <div key={item.id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                  <p className="truncate text-sm font-medium text-zinc-100">{item.service}</p>
+                  <p className="truncate text-xs text-zinc-400">{item.name}</p>
+                  <p className="mt-1 text-[11px] text-zinc-500">{item.category}</p>
+                </div>
+              ))}
+              {!keysLoading && keys.length === 0 && (
+                <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-xs text-zinc-500">No keys stored</p>
+              )}
+            </div>
+          </>
+        );
+      case 'kanban':
       default:
         return renderSplitPlaceholder(panelId);
     }
