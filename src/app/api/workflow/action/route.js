@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 export async function POST(request) {
   try {
@@ -17,7 +19,9 @@ export async function POST(request) {
     const record = { job_id: jobId, action, status: 'pending', created_at: new Date().toISOString() };
 
     try {
-      const { error } = await supabase.from('cron_actions').insert(record);
+      const sb = getSupabase();
+      if (!sb) throw new Error('no supabase');
+      const { error } = await sb.from('cron_actions').insert(record);
       if (error) throw error;
       return NextResponse.json({ queued: true, source: 'supabase' });
     } catch (e) {

@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { writeFileSync } from 'fs';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 function categorize(name, agent) {
   if (agent === 'xbot') return { category: 'social', icon: '🐦', color: '#3b82f6' };
@@ -61,7 +63,9 @@ export async function POST(request) {
 
     // Try Supabase first
     try {
-      const { error } = await supabase.from('cron_jobs').upsert(mapped, { onConflict: 'id' });
+      const sb = getSupabase();
+      if (!sb) throw new Error('no supabase');
+      const { error } = await sb.from('cron_jobs').upsert(mapped, { onConflict: 'id' });
       if (error) throw error;
       return NextResponse.json({ synced: mapped.length, source: 'supabase' });
     } catch (e) {

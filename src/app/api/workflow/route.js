@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, existsSync } from 'fs';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 // Hardcoded fallback jobs
 const FALLBACK_JOBS = [
@@ -96,7 +98,9 @@ export async function GET() {
 
   // Try Supabase
   try {
-    const { data, error } = await supabase.from('cron_jobs').select('*').order('synced_at', { ascending: false });
+    const sb = getSupabase();
+    if (!sb) throw new Error('no supabase');
+    const { data, error } = await sb.from('cron_jobs').select('*').order('synced_at', { ascending: false });
     if (!error && data && data.length > 0) {
       jobs = data;
       source = 'supabase';
@@ -133,7 +137,9 @@ export async function GET() {
 
   // Pending actions
   try {
-    const { data, error } = await supabase.from('cron_actions').select('*').eq('status', 'pending');
+    const sb = getSupabase();
+    if (!sb) throw new Error('no supabase');
+    const { data, error } = await sb.from('cron_actions').select('*').eq('status', 'pending');
     if (!error && data) pendingActions = data;
   } catch (e) { /* ignore */ }
 
