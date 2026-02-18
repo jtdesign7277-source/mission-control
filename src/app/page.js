@@ -24,10 +24,12 @@ import {
   Shield,
   Trash2,
   X,
+  Brain,
 } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import ChatBar from '@/components/ChatBar';
+import BrainDump from '@/components/BrainDump';
 
 const VIEW_TABS = [
   { id: 'split', label: 'Split' },
@@ -37,6 +39,7 @@ const VIEW_TABS = [
   { id: 'email', label: 'Email' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'keys', label: 'Keys' },
+  { id: 'braindump', label: 'Brain Dump' },
 ];
 
 const STATUS_COLORS = {
@@ -253,6 +256,10 @@ export default function MissionControlPage() {
   const [composeSending, setComposeSending] = useState(false);
   const [composeForm, setComposeForm] = useState(EMPTY_COMPOSE_FORM);
   const [composeToFocused, setComposeToFocused] = useState(false);
+
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyBody, setReplyBody] = useState('');
+  const [replySending, setReplySending] = useState(false);
 
   const [contacts, setContacts] = useState([]);
   const [contactsLoading, setContactsLoading] = useState(false);
@@ -1215,7 +1222,7 @@ export default function MissionControlPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            onClick={openComposeForReply}
+                            onClick={() => { setReplyOpen(true); setReplyBody(''); }}
                             className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-white/5"
                           >
                             <Reply className="h-3.5 w-3.5" />
@@ -1245,6 +1252,61 @@ export default function MissionControlPage() {
                       <div className="rounded-xl border border-white/10 bg-black/20 p-4">
                         <pre className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">{selectedEmail.text || selectedEmail.snippet}</pre>
                       </div>
+
+                      {replyOpen && (
+                        <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                          <p className="mb-2 text-xs text-zinc-400">Replying to {selectedEmail.sender}</p>
+                          <textarea
+                            value={replyBody}
+                            onChange={(e) => setReplyBody(e.target.value)}
+                            placeholder="Write your reply..."
+                            rows={6}
+                            className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                          />
+                          <div className="mt-2 flex gap-2">
+                            <button
+                              type="button"
+                              disabled={replySending || !replyBody.trim()}
+                              onClick={async () => {
+                                setReplySending(true);
+                                try {
+                                  const res = await fetch('/api/email/reply', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      threadId: selectedEmail.threadId,
+                                      messageId: selectedEmail.id,
+                                      to: parseEmailAddress(selectedEmail.sender),
+                                      subject: selectedEmail.subject?.startsWith('Re:') ? selectedEmail.subject : 'Re: ' + selectedEmail.subject,
+                                      body: replyBody,
+                                    }),
+                                  });
+                                  const data = await res.json();
+                                  if (!res.ok) throw new Error(data.error || 'Failed to send reply');
+                                  setReplyOpen(false);
+                                  setReplyBody('');
+                                  await fetchInbox();
+                                } catch (err) {
+                                  setEmailsError(err.message || 'Failed to send reply');
+                                } finally {
+                                  setReplySending(false);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+                            >
+                              {replySending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                              Send Reply
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setReplyOpen(false); setReplyBody(''); }}
+                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/5"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -1580,6 +1642,7 @@ export default function MissionControlPage() {
             </div>
           </section>
         )}
+        {activeView === 'braindump' && <BrainDump />}
       </div>
 
       {composeOpen && (
