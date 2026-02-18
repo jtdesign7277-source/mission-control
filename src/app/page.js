@@ -48,6 +48,34 @@ const VIEW_TABS = [
   { id: 'community', label: 'Community' },
 ];
 
+const SPLIT_PANELS = [
+  { id: 'feed', label: 'Activity Feed', icon: 'BellRing' },
+  { id: 'deployments', label: 'Deployments', icon: 'Rocket' },
+  { id: 'email', label: 'Email', icon: 'Mail' },
+  { id: 'kanban', label: 'Kanban', icon: 'CheckCircle2' },
+  { id: 'contacts', label: 'Contacts', icon: 'Shield' },
+  { id: 'keys', label: 'Keys', icon: 'KeyRound' },
+  { id: 'workflow', label: 'Workflow', icon: 'Server' },
+  { id: 'braindump', label: 'Brain Dump', icon: 'Brain' },
+  { id: 'community', label: 'Community', icon: 'Rocket' },
+];
+
+const SPLIT_PANEL_ICONS = {
+  BellRing,
+  Rocket,
+  Mail,
+  CheckCircle2,
+  Shield,
+  KeyRound,
+  Server,
+  Brain,
+};
+
+const SPLIT_PANEL_BY_ID = Object.fromEntries(SPLIT_PANELS.map((panel) => [panel.id, panel]));
+const SPLIT_PANEL_ID_SET = new Set(SPLIT_PANELS.map((panel) => panel.id));
+const SPLIT_PANELS_STORAGE_KEY = 'mc-split-panels';
+const MAX_SPLIT_PANELS = 4;
+
 const STATUS_COLORS = {
   ok: 'bg-emerald-400',
   ready: 'bg-emerald-400',
@@ -276,6 +304,7 @@ function LiveClock() {
 
 export default function MissionControlPage() {
   const [activeView, setActiveView] = useState('split');
+  const [splitPanels, setSplitPanels] = useState(['feed', 'deployments']);
 
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
@@ -738,6 +767,46 @@ export default function MissionControlPage() {
     }
   }, [composeForm, contacts, fetchContacts, fetchInbox]);
 
+  const toggleSplitPanel = useCallback((panelId) => {
+    setSplitPanels((prev) => {
+      if (!SPLIT_PANEL_ID_SET.has(panelId)) return prev;
+      if (prev.includes(panelId)) return prev.filter((id) => id !== panelId);
+      if (prev.length >= MAX_SPLIT_PANELS) return [...prev.slice(1), panelId];
+      return [...prev, panelId];
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SPLIT_PANELS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+
+      const nextPanels = [];
+      parsed.forEach((panelId) => {
+        if (!SPLIT_PANEL_ID_SET.has(panelId)) return;
+        if (nextPanels.includes(panelId)) return;
+        if (nextPanels.length >= MAX_SPLIT_PANELS) return;
+        nextPanels.push(panelId);
+      });
+
+      if (nextPanels.length > 0) {
+        setSplitPanels(nextPanels);
+      }
+    } catch {
+      // ignore invalid local storage payloads
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SPLIT_PANELS_STORAGE_KEY, JSON.stringify(splitPanels));
+    } catch {
+      // ignore storage write failures
+    }
+  }, [splitPanels]);
+
   useEffect(() => {
     fetchWeather();
     const timer = setInterval(fetchWeather, 900000);
@@ -980,6 +1049,108 @@ export default function MissionControlPage() {
     setKeyModalOpen(true);
   };
 
+  const splitGridClasses = useMemo(() => {
+    switch (splitPanels.length) {
+      case 1:
+        return 'grid-cols-1';
+      case 2:
+        return 'grid-cols-2';
+      case 3:
+        return 'grid-cols-3';
+      case 4:
+        return 'grid-cols-2 grid-rows-2';
+      default:
+        return 'grid-cols-1';
+    }
+  }, [splitPanels.length]);
+
+  const renderSplitPlaceholder = (panelId) => {
+    const panel = SPLIT_PANEL_BY_ID[panelId];
+    const Icon = SPLIT_PANEL_ICONS[panel?.icon] || Server;
+
+    return (
+      <div className="flex h-full min-h-[220px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-black/20 px-4 py-6 text-center">
+        <div>
+          <div className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5">
+            <Icon className="h-4 w-4 text-zinc-300" />
+          </div>
+          <p className="text-sm font-medium text-zinc-100">{panel?.label || 'Panel'}</p>
+          <p className="mt-1 text-xs text-zinc-500">Placeholder in split view</p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSplitPanel = (panelId) => {
+    if (!SPLIT_PANEL_ID_SET.has(panelId)) return null;
+
+    switch (panelId) {
+      case 'feed':
+        return (
+          <>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <BellRing className="h-4 w-4 text-emerald-300" />
+                Activity Feed
+              </h2>
+              {eventsLoading && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
+            </div>
+            {eventsError && <p className="mb-3 text-sm text-rose-300">{eventsError}</p>}
+            <div className="space-y-2">
+              {events.slice(0, 10).map((event) => (
+                <EventRow key={event.id} event={event} />
+              ))}
+              {!eventsLoading && events.length === 0 && (
+                <p className="rounded-lg border border-white/10 bg-black/20 px-3 py-5 text-sm text-zinc-500">
+                  No events yet. Send a POST request to <code>/api/activity</code> to start the stream.
+                </p>
+              )}
+            </div>
+          </>
+        );
+      case 'deployments':
+        return (
+          <>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Rocket className="h-4 w-4 text-amber-300" />
+                Deployments
+              </h2>
+              <button
+                type="button"
+                onClick={fetchDeployments}
+                className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/5"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${deploymentsLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+            {deploymentsError && <p className="mb-3 text-sm text-rose-300">{deploymentsError}</p>}
+            <div className="space-y-2">
+              {deployments.slice(0, 8).map((deployment) => (
+                <DeploymentCard key={deployment.id} deployment={deployment} />
+              ))}
+              {!deploymentsLoading && deployments.length === 0 && (
+                <p className="rounded-lg border border-white/10 bg-black/20 px-3 py-5 text-sm text-zinc-500">No deployments returned from Vercel API.</p>
+              )}
+            </div>
+          </>
+        );
+      case 'workflow':
+        return <WorkflowBoard />;
+      case 'braindump':
+        return <BrainDump />;
+      case 'community':
+        return <CommunityHub />;
+      case 'email':
+      case 'kanban':
+      case 'contacts':
+      case 'keys':
+      default:
+        return renderSplitPlaceholder(panelId);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-transparent px-6 py-6 text-zinc-100">
       {/* WeatherEffects removed */}
@@ -1008,53 +1179,47 @@ export default function MissionControlPage() {
         </section>
 
         {activeView === 'split' && (
-          <section className="grid min-h-[65vh] grid-cols-1 gap-4 lg:grid-cols-2">
-            <article className="rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-lg font-semibold">
-                  <BellRing className="h-4 w-4 text-emerald-300" />
-                  Live Activity Feed
-                </h2>
-                {eventsLoading && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
-              </div>
-              {eventsError && <p className="mb-3 text-sm text-rose-300">{eventsError}</p>}
-              <div className="space-y-2">
-                {events.slice(0, 10).map((event) => (
-                  <EventRow key={event.id} event={event} />
-                ))}
-                {!eventsLoading && events.length === 0 && (
-                  <p className="rounded-lg border border-white/10 bg-black/20 px-3 py-5 text-sm text-zinc-500">
-                    No events yet. Send a POST request to <code>/api/activity</code> to start the stream.
-                  </p>
-                )}
-              </div>
-            </article>
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {SPLIT_PANELS.map((panel) => {
+                  const isSelected = splitPanels.includes(panel.id);
+                  const Icon = SPLIT_PANEL_ICONS[panel.icon] || Server;
 
-            <article className="rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-lg font-semibold">
-                  <Rocket className="h-4 w-4 text-amber-300" />
-                  Deployment Watch
-                </h2>
-                <button
-                  type="button"
-                  onClick={fetchDeployments}
-                  className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/5"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${deploymentsLoading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
+                  return (
+                    <button
+                      key={panel.id}
+                      type="button"
+                      onClick={() => toggleSplitPanel(panel.id)}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition ${
+                        isSelected
+                          ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-300'
+                          : 'border-white/10 text-zinc-500 hover:bg-white/5 hover:text-zinc-300'
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      <span>{panel.label}</span>
+                    </button>
+                  );
+                })}
+                <span className="ml-auto rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-zinc-400">
+                  {splitPanels.length}/{MAX_SPLIT_PANELS}
+                </span>
               </div>
-              {deploymentsError && <p className="mb-3 text-sm text-rose-300">{deploymentsError}</p>}
-              <div className="space-y-2">
-                {deployments.slice(0, 8).map((deployment) => (
-                  <DeploymentCard key={deployment.id} deployment={deployment} />
-                ))}
-                {!deploymentsLoading && deployments.length === 0 && (
-                  <p className="rounded-lg border border-white/10 bg-black/20 px-3 py-5 text-sm text-zinc-500">No deployments returned from Vercel API.</p>
-                )}
-              </div>
-            </article>
+            </div>
+
+            <div className={`grid min-h-[65vh] gap-4 ${splitGridClasses}`}>
+              {splitPanels.length === 0 && (
+                <article className="flex min-h-[260px] items-center justify-center rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-500">
+                  Select at least one panel above.
+                </article>
+              )}
+              {splitPanels.map((panelId) => (
+                <article key={panelId} className="min-h-[260px] overflow-auto rounded-2xl border border-white/10 bg-black/30 p-4">
+                  {renderSplitPanel(panelId)}
+                </article>
+              ))}
+            </div>
           </section>
         )}
 
