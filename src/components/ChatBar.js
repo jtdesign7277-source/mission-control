@@ -1,10 +1,23 @@
 'use client';
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { Send, ChevronDown, ChevronUp, Loader2, Terminal, X, TrendingUp } from 'lucide-react';
+import { Send, ChevronDown, ChevronUp, Loader2, Terminal, X, TrendingUp, Trophy } from 'lucide-react';
+
+// Suggested starter questions
+const STARTER_QUESTIONS = [
+  { label: '📈 How is $TSLA performing today?', text: 'How is $TSLA performing today?' },
+  { label: '🏦 What\'s the Fed fund rate?', text: 'What\'s the current Federal Funds rate and what\'s the Fed\'s latest outlook?' },
+  { label: '🏆 Trending sports', text: 'What\'s trending in sports right now? NFL, NBA, NHL playoffs, any big games or trades happening?' },
+];
 
 // Common tickers to detect in conversation
 const TICKER_PATTERN = /\$([A-Z]{1,5})\b|\b(AAPL|TSLA|NVDA|AMZN|GOOGL|GOOG|META|MSFT|AMD|COIN|NFLX|PYPL|SOFI|PLTR|SPY|QQQ|HIMS|DIS|BA|INTC|UBER|SHOP|SQ|RIVN|LCID|NIO|MARA|RIOT|BTC|ETH|SOL|XRP|DOGE)\b/gi;
+
+// Finance/rate keywords that should show a TradingView chart
+const FINANCE_KEYWORDS = /\b(fed\s*fund|federal\s*fund|interest\s*rate|treasury|yield|bond|10.year|2.year|inflation|CPI|GDP|unemployment)\b/gi;
+
+// Sports keywords
+const SPORTS_KEYWORDS = /\b(NFL|NBA|NHL|MLB|NCAA|Super\s*Bowl|playoff|World\s*Series|Stanley\s*Cup|championship|ESPN|football|basketball|hockey|baseball|soccer|Premier\s*League|UFC|MMA|boxing|F1|Formula|tennis|golf|PGA|Olympics|March\s*Madness|sport|game\s*tonight|score)\b/gi;
 
 function extractTickers(messages) {
   const tickers = new Set();
@@ -17,42 +30,104 @@ function extractTickers(messages) {
       tickers.add(ticker);
     }
   }
-  // Return last mentioned ticker (most relevant)
   const arr = Array.from(tickers);
   return arr.length > 0 ? arr[arr.length - 1] : null;
 }
 
-function StockSidebar({ ticker }) {
-  if (!ticker) return null;
+function detectSidebarType(messages) {
+  // Check messages in reverse (latest first)
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const text = messages[i].content || '';
+    if (SPORTS_KEYWORDS.test(text)) return 'sports';
+    if (FINANCE_KEYWORDS.test(text)) return 'finance';
+    if (TICKER_PATTERN.test(text)) return 'stock';
+  }
+  return null;
+}
 
-  // Map crypto tickers to TradingView format
+function StockSidebar({ ticker }) {
   const cryptoMap = { BTC: 'COINBASE:BTCUSD', ETH: 'COINBASE:ETHUSD', SOL: 'COINBASE:SOLUSD', XRP: 'COINBASE:XRPUSD', DOGE: 'COINBASE:DOGEUSD' };
   const tvSymbol = cryptoMap[ticker] || ticker;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-black/40">
-      {/* Header */}
+    <div className="flex h-full flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
         <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
         <span className="text-sm font-semibold text-zinc-100">${ticker}</span>
       </div>
-
-      {/* TradingView Chart */}
       <div className="flex-1 min-h-0">
         <iframe
           key={tvSymbol}
           src={`https://s.tradingview.com/widgetembed/?hideideas=1&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en#{"symbol":"${tvSymbol}","frameElementId":"tradingview_widget","interval":"D","hide_top_toolbar":"1","hide_legend":"1","save_image":"0","calendar":"0","hide_volume":"1","support_host":"https://www.tradingview.com","theme":"dark","style":"1","timezone":"America/New_York","withdateranges":"0","studies":[],"backgroundColor":"rgba(0,0,0,0)"}`}
           className="h-full w-full border-0"
           allowTransparency="true"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
         />
       </div>
+      <div className="border-t border-white/10 px-3 py-1.5">
+        <p className="text-[11px] text-zinc-500">TradingView · {ticker} · Real-time</p>
+      </div>
+    </div>
+  );
+}
 
-      {/* Quick Info Footer */}
-      <div className="border-t border-white/10 px-3 py-2">
-        <p className="text-[11px] text-zinc-500">
-          TradingView · {ticker} · Real-time
-        </p>
+function FinanceSidebar() {
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
+        <TrendingUp className="h-3.5 w-3.5 text-amber-400" />
+        <span className="text-sm font-semibold text-zinc-100">Rates & Macro</span>
+      </div>
+      <div className="flex-1 min-h-0">
+        <iframe
+          src={`https://s.tradingview.com/widgetembed/?hideideas=1&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en#{"symbol":"TVC:US10Y","frameElementId":"tradingview_rates","interval":"D","hide_top_toolbar":"1","hide_legend":"1","save_image":"0","calendar":"0","hide_volume":"1","support_host":"https://www.tradingview.com","theme":"dark","style":"1","timezone":"America/New_York","withdateranges":"0","studies":[],"backgroundColor":"rgba(0,0,0,0)"}`}
+          className="h-full w-full border-0"
+          allowTransparency="true"
+        />
+      </div>
+      <div className="border-t border-white/10 px-3 py-1.5">
+        <p className="text-[11px] text-zinc-500">TradingView · US 10Y Treasury Yield</p>
+      </div>
+    </div>
+  );
+}
+
+function SportsSidebar() {
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
+        <Trophy className="h-3.5 w-3.5 text-yellow-400" />
+        <span className="text-sm font-semibold text-zinc-100">Sports</span>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <iframe
+          src="https://www.espn.com/espn/livecast"
+          className="h-full w-full border-0"
+          style={{ colorScheme: 'dark' }}
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+        {/* Fallback if ESPN blocks iframe */}
+        <div className="flex flex-col gap-3 p-4">
+          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+            <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wider mb-2">🏒 NHL</p>
+            <a href="https://www.espn.com/nhl/scoreboard" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-300 hover:text-white">Scores & Standings →</a>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+            <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-2">🏀 NBA</p>
+            <a href="https://www.espn.com/nba/scoreboard" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-300 hover:text-white">Scores & Standings →</a>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+            <p className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2">🏈 NFL</p>
+            <a href="https://www.espn.com/nfl/" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-300 hover:text-white">News & Schedule →</a>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+            <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">⚾ MLB</p>
+            <a href="https://www.espn.com/mlb/" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-300 hover:text-white">News & Schedule →</a>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+            <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">⚽ Soccer</p>
+            <a href="https://www.espn.com/soccer/" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-300 hover:text-white">Scores & News →</a>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -70,13 +145,17 @@ export default function ChatBar() {
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
-  // Detect ticker from conversation
   const activeTicker = useMemo(() => extractTickers(messages), [messages]);
+  const sidebarType = useMemo(() => {
+    if (activeTicker) return 'stock';
+    return detectSidebarType(messages);
+  }, [messages, activeTicker]);
+  const showSidebar = sidebarType !== null;
 
-  const sendMessage = async () => {
-    const text = input.trim();
+  const sendMessage = async (overrideText) => {
+    const text = (overrideText || input).trim();
     if (!text || streaming) return;
-    setInput('');
+    if (!overrideText) setInput('');
     setExpanded(true);
 
     const userMsg = { role: 'user', content: text };
@@ -138,7 +217,23 @@ export default function ChatBar() {
 
   return (
     <div className="w-full mb-4">
-      {/* Chat panel with optional stock sidebar */}
+      {/* Starter questions — show when no messages */}
+      {messages.length === 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {STARTER_QUESTIONS.map((q) => (
+            <button
+              key={q.text}
+              type="button"
+              onClick={() => sendMessage(q.text)}
+              className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-300 hover:border-emerald-400/30 hover:bg-emerald-500/10 hover:text-emerald-300 transition"
+            >
+              {q.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Chat panel with context sidebar */}
       {expanded && messages.length > 0 && (
         <div className="mt-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden">
           {/* Header */}
@@ -154,6 +249,18 @@ export default function ChatBar() {
                   <span className="text-emerald-400">${activeTicker}</span>
                 </>
               )}
+              {sidebarType === 'finance' && (
+                <>
+                  <span className="text-zinc-600">·</span>
+                  <span className="text-amber-400">Rates</span>
+                </>
+              )}
+              {sidebarType === 'sports' && (
+                <>
+                  <span className="text-zinc-600">·</span>
+                  <span className="text-yellow-400">Sports</span>
+                </>
+              )}
             </div>
             <button
               type="button"
@@ -165,12 +272,12 @@ export default function ChatBar() {
             </button>
           </div>
 
-          {/* Two-column layout: chat + stock sidebar */}
-          <div className={`flex ${activeTicker ? 'h-[45vh]' : 'h-[35vh]'}`}>
+          {/* Two-column layout: chat + sidebar */}
+          <div className={`flex ${showSidebar ? 'h-[45vh]' : 'h-[35vh]'}`}>
             {/* Messages */}
             <div
               ref={scrollRef}
-              className={`overflow-y-auto overscroll-contain px-4 py-3 space-y-3 ${activeTicker ? 'w-1/2 border-r border-white/10' : 'w-full'}`}
+              className={`overflow-y-auto overscroll-contain px-4 py-3 space-y-3 ${showSidebar ? 'w-1/2 border-r border-white/10' : 'w-full'}`}
             >
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -187,10 +294,12 @@ export default function ChatBar() {
               ))}
             </div>
 
-            {/* Stock Sidebar — only shows when ticker detected */}
-            {activeTicker && (
-              <div className="w-1/2">
-                <StockSidebar ticker={activeTicker} />
+            {/* Context Sidebar */}
+            {showSidebar && (
+              <div className="w-1/2 rounded-xl border border-white/10 bg-black/40">
+                {sidebarType === 'stock' && activeTicker && <StockSidebar ticker={activeTicker} />}
+                {sidebarType === 'finance' && <FinanceSidebar />}
+                {sidebarType === 'sports' && <SportsSidebar />}
               </div>
             )}
           </div>
@@ -230,7 +339,7 @@ export default function ChatBar() {
         )}
         <button
           type="button"
-          onClick={sendMessage}
+          onClick={() => sendMessage()}
           disabled={streaming || !input.trim()}
           className="flex items-center justify-center rounded-lg bg-emerald-500/20 border border-emerald-500/30 p-1.5 text-emerald-400 hover:bg-emerald-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
         >
