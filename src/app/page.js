@@ -77,7 +77,7 @@ const SPLIT_PANEL_ICONS = {
 const SPLIT_PANEL_BY_ID = Object.fromEntries(SPLIT_PANELS.map((panel) => [panel.id, panel]));
 const SPLIT_PANEL_ID_SET = new Set(SPLIT_PANELS.map((panel) => panel.id));
 const SPLIT_PANELS_STORAGE_KEY = 'mc-split-panels';
-const MAX_SPLIT_PANELS = 4;
+const MAX_SPLIT_PANELS = 5;
 
 const STATUS_COLORS = {
   ok: 'bg-emerald-400',
@@ -1054,18 +1054,12 @@ export default function MissionControlPage() {
   };
 
   const splitGridClasses = useMemo(() => {
-    switch (splitPanels.length) {
-      case 1:
-        return 'grid-cols-1';
-      case 2:
-        return 'grid-cols-2';
-      case 3:
-        return 'grid-cols-3';
-      case 4:
-        return 'grid-cols-2 grid-rows-2';
-      default:
-        return 'grid-cols-1';
-    }
+    const count = splitPanels.length;
+    if (count <= 1) return 'grid-cols-1';
+    if (count === 2) return 'grid-cols-2';
+    if (count === 3) return 'grid-cols-3';
+    if (count === 4) return 'grid-cols-4';
+    return `grid-cols-${Math.min(count, 5)}`;
   }, [splitPanels.length]);
 
   const renderSplitPlaceholder = (panelId) => {
@@ -1214,7 +1208,7 @@ export default function MissionControlPage() {
               </div>
             </div>
 
-            <div className={`grid min-h-[65vh] gap-4 ${splitGridClasses}`}>
+            <div className={`grid h-[calc(100vh-220px)] gap-3 ${splitGridClasses}`}>
               {splitPanels.length === 0 && (
                 <article className="flex min-h-[260px] items-center justify-center rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-500">
                   Select at least one panel above.
@@ -1223,8 +1217,8 @@ export default function MissionControlPage() {
               {splitPanels.map((panelId) => (
                 <article
                   key={panelId}
-                  className={`min-h-[260px] rounded-2xl border border-white/10 bg-black/30 ${
-                    panelId === 'telegram' ? 'overflow-hidden p-0' : 'overflow-auto p-4'
+                  className={`rounded-2xl border border-white/10 bg-black/30 overflow-hidden ${
+                    panelId === 'telegram' ? 'p-0' : 'overflow-y-auto p-4'
                   }`}
                 >
                   {renderSplitPanel(panelId)}
