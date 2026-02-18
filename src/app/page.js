@@ -1421,10 +1421,18 @@ export default function MissionControlPage() {
               {splitPanels.map((panelId) => (
                 <article
                   key={panelId}
-                  className={`rounded-2xl border border-white/10 bg-black/30 overflow-hidden ${
+                  className={`relative rounded-2xl border border-white/10 bg-black/30 overflow-hidden ${
                     panelId === 'telegram' ? 'p-0' : 'overflow-y-auto p-4'
                   }`}
                 >
+                  <button
+                    type="button"
+                    onClick={() => setSplitPanels((prev) => prev.filter((id) => id !== panelId))}
+                    className="absolute right-2 top-2 z-20 rounded-md border border-white/10 bg-black/50 px-1.5 py-0.5 text-[11px] text-zinc-400 hover:bg-white/10 hover:text-white"
+                    title="Remove panel"
+                  >
+                    ✕
+                  </button>
                   {renderSplitPanel(panelId)}
                 </article>
               ))}
