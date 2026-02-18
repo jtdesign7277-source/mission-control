@@ -32,7 +32,7 @@ import ChatBar from '@/components/ChatBar';
 import BrainDump from '@/components/BrainDump';
 import WorkflowBoard from '@/components/WorkflowBoard';
 // WeatherEffects removed — weather visuals contained in header only
-import { WeatherHeaderBackground, WeatherInfo } from '@/components/WeatherWidget';
+// Old WeatherWidget removed
 import CommunityHub from '@/components/CommunityHub';
 
 const VIEW_TABS = [
@@ -985,11 +985,11 @@ export default function MissionControlPage() {
       {/* WeatherEffects removed */}
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
         <header className="relative overflow-hidden rounded-2xl border border-white/10 p-5 shadow-[0_0_80px_rgba(34,197,94,0.06)]">
-          <WeatherHeaderBackground condition={weather?.condition} isDay={weather?.isDay} />
+          {/* Old weather removed */}
           <div className="relative z-10 flex items-start justify-between mb-3" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
             <p className="text-[11px] uppercase tracking-[0.35em] text-white/70 pt-1">Mission Control</p>
             <div className="flex items-end gap-5">
-              <WeatherInfo weather={weather} />
+              
               <div className="text-right">
                 <LiveClock />
               </div>
