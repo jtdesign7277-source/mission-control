@@ -83,48 +83,7 @@ export default function ChatBar() {
 
   return (
     <div className="w-full mb-4">
-      {/* Input bar — always at top */}
-      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm px-4 py-2.5">
-        <Terminal className="h-4 w-4 text-emerald-400 shrink-0" />
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask Fred anything..."
-          disabled={streaming}
-          className="flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 outline-none font-mono"
-        />
-        {messages.length > 0 && !expanded && (
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition"
-          >
-            <span>{messages.length} msgs</span>
-            <ChevronDown className="h-3 w-3" />
-          </button>
-        )}
-        {expanded && messages.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setExpanded(false)}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition"
-          >
-            <ChevronUp className="h-3 w-3" />
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={sendMessage}
-          disabled={streaming || !input.trim()}
-          className="flex items-center justify-center rounded-lg bg-emerald-500/20 border border-emerald-500/30 p-1.5 text-emerald-400 hover:bg-emerald-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </button>
-      </div>
-
-      {/* Chat messages panel — below input, fixed height, internal scroll */}
+      {/* Chat messages panel — above input, fixed height, internal scroll */}
       {expanded && messages.length > 0 && (
         <div className="mt-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden">
           {/* Header */}
@@ -166,6 +125,47 @@ export default function ChatBar() {
           </div>
         </div>
       )}
+
+      {/* Input bar — always at bottom */}
+      <div className={`flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm px-4 py-2.5 ${expanded && messages.length > 0 ? 'mt-2' : ''}`}>
+        <Terminal className="h-4 w-4 text-emerald-400 shrink-0" />
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask Fred anything..."
+          disabled={streaming}
+          className="flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 outline-none font-mono"
+        />
+        {messages.length > 0 && !expanded && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition"
+          >
+            <span>{messages.length} msgs</span>
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        )}
+        {expanded && messages.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition"
+          >
+            <ChevronUp className="h-3 w-3" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={sendMessage}
+          disabled={streaming || !input.trim()}
+          className="flex items-center justify-center rounded-lg bg-emerald-500/20 border border-emerald-500/30 p-1.5 text-emerald-400 hover:bg-emerald-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        </button>
+      </div>
     </div>
   );
 }
