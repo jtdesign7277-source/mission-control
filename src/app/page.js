@@ -899,7 +899,7 @@ export default function MissionControlPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#06080f] px-6 py-6 text-zinc-100">
+    <main className="min-h-screen bg-transparent px-6 py-6 text-zinc-100">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
         <header className="rounded-2xl border border-white/10 bg-gradient-to-r from-[#0b1220] via-[#0d1527] to-[#111a31] p-5 shadow-[0_0_80px_rgba(34,197,94,0.06)]">
           <div className="flex flex-wrap items-center justify-between gap-4">

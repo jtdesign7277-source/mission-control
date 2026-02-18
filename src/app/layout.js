@@ -1,4 +1,5 @@
 import './globals.css';
+import SpaceBackground from '@/components/SpaceBackground';
 
 export const metadata = {
   title: 'Mission Control',
@@ -8,7 +9,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="mission-control-body">{children}</body>
+      <body className="mission-control-body">
+        <SpaceBackground />
+        <div className="relative z-10">{children}</div>
+      </body>
     </html>
   );
 }
