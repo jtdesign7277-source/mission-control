@@ -42,7 +42,9 @@ const STATUS_COLORS = {
   ok: 'bg-emerald-400',
   ready: 'bg-emerald-400',
   success: 'bg-emerald-400',
+  completed: 'bg-emerald-400',
   healthy: 'bg-emerald-400',
+  running: 'bg-rose-400',
   building: 'bg-amber-400',
   queued: 'bg-sky-400',
   warning: 'bg-amber-400',
@@ -50,6 +52,21 @@ const STATUS_COLORS = {
   failed: 'bg-rose-400',
   canceled: 'bg-slate-500',
   unknown: 'bg-zinc-500',
+};
+
+const STATUS_TEXT_COLORS = {
+  running: 'text-rose-400',
+  building: 'text-amber-400',
+  queued: 'text-sky-400',
+  completed: 'text-emerald-400',
+  ok: 'text-emerald-400',
+  ready: 'text-emerald-400',
+  success: 'text-emerald-400',
+  healthy: 'text-emerald-400',
+  error: 'text-rose-400',
+  failed: 'text-rose-400',
+  canceled: 'text-slate-400',
+  unknown: 'text-zinc-400',
 };
 
 const DEPLOYMENT_REFRESH_MS = 10000;
@@ -89,6 +106,11 @@ function normalizeStatus(value) {
 function statusDotClass(status) {
   const normalized = normalizeStatus(status);
   return STATUS_COLORS[normalized] || STATUS_COLORS.unknown;
+}
+
+function statusTextClass(status) {
+  const normalized = normalizeStatus(status);
+  return STATUS_TEXT_COLORS[normalized] || STATUS_TEXT_COLORS.unknown;
 }
 
 function timeAgo(timestamp) {
@@ -144,7 +166,7 @@ function EventRow({ event }) {
         </div>
         <div className="flex items-center gap-2 text-xs text-zinc-400">
           <span className={`h-2 w-2 rounded-full ${statusDotClass(status)}`} />
-          <span className="uppercase tracking-wider">{prettyStatus(status)}</span>
+          <span className={`uppercase tracking-wider ${statusTextClass(status)}`}>{prettyStatus(status)}</span>
         </div>
       </div>
       {Number.isFinite(event.duration) && (
@@ -166,7 +188,7 @@ function DeploymentCard({ deployment }) {
         </div>
         <div className="flex items-center gap-2 text-xs text-zinc-400">
           <span className={`h-2 w-2 rounded-full ${statusDotClass(status)}`} />
-          <span className="uppercase tracking-wider">{prettyStatus(deployment.status)}</span>
+          <span className={`uppercase tracking-wider ${statusTextClass(status)}`}>{prettyStatus(deployment.status)}</span>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-zinc-500">
@@ -968,13 +990,13 @@ export default function MissionControlPage() {
         {activeView === 'kanban' && (
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-4">
             {[
-              { id: 'queued', label: 'QUEUED' },
-              { id: 'running', label: 'RUNNING' },
-              { id: 'completed', label: 'COMPLETED' },
-              { id: 'failed', label: 'FAILED' },
+              { id: 'queued', label: 'QUEUED', color: 'text-sky-400' },
+              { id: 'running', label: 'RUNNING', color: 'text-rose-400' },
+              { id: 'completed', label: 'COMPLETED', color: 'text-emerald-400' },
+              { id: 'failed', label: 'FAILED', color: 'text-rose-400' },
             ].map((column) => (
               <article key={column.id} className="rounded-2xl border border-white/10 bg-black/30 p-3">
-                <h3 className="mb-3 text-sm uppercase tracking-[0.2em] text-zinc-400">{column.label}</h3>
+                <h3 className={`mb-3 text-sm uppercase tracking-[0.2em] ${column.color}`}>{column.label}</h3>
                 <div className="space-y-2">
                   {(eventColumns[column.id] || []).map((event) => (
                     <EventRow key={event.id} event={event} />
