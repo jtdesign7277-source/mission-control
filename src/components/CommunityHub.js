@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Hash,
   MessageSquare,
@@ -9,60 +9,112 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Send,
+  RefreshCw,
   ChevronRight,
   Sparkles,
-  TrendingUp,
-  Zap,
-  Target,
-  BarChart3,
-  Lightbulb,
-  Bug,
-  Megaphone,
+  Loader2,
 } from 'lucide-react';
 
-/* ─── config ────────────────────────────────────────────── */
 const DISCORD_INVITE = 'https://discord.gg/6RPsREggYV';
-const DISCORD_SERVER_ID = '1473541777829925078';
-
-const CHANNELS = [
-  { name: 'general', icon: MessageSquare, color: 'text-zinc-400', desc: 'Main hangout — intros, questions, vibes' },
-  { name: 'announcements', icon: Megaphone, color: 'text-amber-400', desc: 'Official Stratify updates and releases' },
-  { name: 'trade-setups', icon: Target, color: 'text-emerald-400', desc: 'Share your entries, exits, and chart analysis' },
-  { name: 'strategies', icon: Zap, color: 'text-indigo-400', desc: 'Discuss and refine trading strategies' },
-  { name: 'show-your-pnl', icon: BarChart3, color: 'text-pink-400', desc: 'Post your P&L — wins AND losses' },
-  { name: 'feature-requests', icon: Lightbulb, color: 'text-yellow-400', desc: 'Ideas to make Stratify better' },
-  { name: 'bug-reports', icon: Bug, color: 'text-red-400', desc: 'Found something broken? Report it here' },
-  { name: 'market-talk', icon: TrendingUp, color: 'text-cyan-400', desc: 'Real-time market discussion and news' },
-];
+const REFRESH_MS = 15000;
 
 const RULES = [
-  { title: 'No Financial Advice', desc: 'Everything shared is for educational purposes. Do your own DD.' },
-  { title: 'Be Respectful', desc: 'Disagree with ideas, not people. No personal attacks.' },
-  { title: 'No Pump & Dump', desc: 'No shilling tickers or coordinating buys. Instant ban.' },
-  { title: 'Share Honestly', desc: 'Post your losses too. We learn more from red days.' },
-  { title: 'Stay On Topic', desc: 'Keep channels focused. Off-topic goes in #general.' },
+  { title: 'No Financial Advice', desc: 'Everything shared is for educational purposes.' },
+  { title: 'Be Respectful', desc: 'Disagree with ideas, not people.' },
+  { title: 'No Pump & Dump', desc: 'No shilling tickers or coordinating buys.' },
+  { title: 'Share Honestly', desc: 'Post your losses too.' },
+  { title: 'Stay On Topic', desc: 'Keep channels focused.' },
 ];
 
-/* ─── component ─────────────────────────────────────────── */
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+function avatarUrl(user) {
+  if (!user) return null;
+  if (user.avatar) return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`;
+  const idx = user.discriminator === '0' ? (BigInt(user.id) >> 22n) % 6n : parseInt(user.discriminator) % 5;
+  return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+}
+
 export default function CommunityHub() {
+  const [channels, setChannels] = useState([]);
+  const [activeChannel, setActiveChannel] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [allMessages, setAllMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [input, setInput] = useState('');
   const [copied, setCopied] = useState(false);
   const [serverInfo, setServerInfo] = useState(null);
+  const [view, setView] = useState('feed'); // 'feed' | 'channel'
+  const bottomRef = useRef(null);
 
-  /* pull live member count from invite API */
+  // Fetch channels
   useEffect(() => {
-    fetch(`https://discord.com/api/v10/invites/6RPsREggYV?with_counts=true`)
+    fetch('/api/discord/channels')
       .then((r) => r.json())
-      .then((d) => {
-        if (d.approximate_member_count != null) {
-          setServerInfo({
-            members: d.approximate_member_count,
-            online: d.approximate_presence_count,
-            name: d.guild?.name || 'Stratify',
-          });
-        }
-      })
+      .then((d) => { if (d.channels) setChannels(d.channels); })
       .catch(() => {});
   }, []);
+
+  // Fetch server info
+  useEffect(() => {
+    fetch('/api/discord/members')
+      .then((r) => r.json())
+      .then((d) => { if (d.memberCount != null) setServerInfo(d); })
+      .catch(() => {});
+  }, []);
+
+  // Fetch messages (all or per-channel)
+  const fetchMessages = useCallback(() => {
+    const url = activeChannel
+      ? `/api/discord/messages?channelId=${activeChannel}&limit=50`
+      : '/api/discord/messages?limit=50';
+
+    fetch(url)
+      .then((r) => r.json())
+      .then((d) => {
+        if (activeChannel) {
+          setMessages(d.messages || []);
+        } else {
+          setAllMessages(d.messages || []);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [activeChannel]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchMessages();
+    const iv = setInterval(fetchMessages, REFRESH_MS);
+    return () => clearInterval(iv);
+  }, [fetchMessages]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, allMessages]);
+
+  const sendMessage = useCallback(async () => {
+    if (!input.trim() || !activeChannel) return;
+    setSending(true);
+    try {
+      await fetch('/api/discord/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: activeChannel, content: input.trim() }),
+      });
+      setInput('');
+      setTimeout(fetchMessages, 500);
+    } catch {}
+    setSending(false);
+  }, [input, activeChannel, fetchMessages]);
 
   const copyInvite = useCallback(() => {
     navigator.clipboard.writeText(DISCORD_INVITE);
@@ -70,137 +122,181 @@ export default function CommunityHub() {
     setTimeout(() => setCopied(false), 2000);
   }, []);
 
+  const displayMessages = activeChannel ? messages : allMessages;
+  const activeChannelName = channels.find((c) => c.id === activeChannel)?.name;
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
-      {/* ── Hero ── */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#5865F2]/20 via-indigo-500/10 to-purple-500/10 p-8">
-        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#5865F2]/15 blur-3xl" />
-        <div className="absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-purple-500/10 blur-3xl" />
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="mb-2 flex items-center gap-2">
-              <svg width="28" height="22" viewBox="0 0 71 55" fill="none" className="text-[#5865F2]">
-                <path d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.440769 45.4204 0.525289C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.525289C25.5141 0.443589 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309 -0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.3046 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.5041 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3## 44.2785 53.4خ31 44.2898 53.5002 44.3433C53.8556 44.6363 54.2279 44.9293 54.6029 45.2082C54.7316 45.304 54.7232 45.5041 54.5833 45.5858C52.8146 46.6168 50.9## 47.4931 49.0خ21 48.2228C48.8762 48.2707 48.8202 48.4172 48.8818 48.5383C49.9خ84 50.6034 51.1خ30 52.5699 52.4خ59 54.4350C52.5خ23 54.5139 52.6خ26 54.5765 52.6خ78 54.5195C58.4خ68 52.7249 64.3خ22 50.0174 70.3خ79 45.5576C70.4خ33 45.5182 70.4خ69 45.4590 70.4خ97 45.3942C71.9خ73 29.9898 67.9خ89 16.6424 60.1खा45 4.9795C60.0खा49 4.9429 60.01خا37 4.9147 60.1खा045 4.8978Z" fill="currentColor"/>
-              </svg>
-              <h1 className="text-2xl font-bold text-white">Stratify Community</h1>
+    <div className="mx-auto max-w-6xl space-y-4 p-4">
+      {/* Hero */}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-gradient-to-r from-[#5865F2]/15 via-indigo-500/10 to-purple-500/10 p-5">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-bold text-white">
+            <MessageSquare className="h-5 w-5 text-[#5865F2]" />
+            Stratify Community
+          </h1>
+          {serverInfo && (
+            <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500">
+              <span className="flex items-center gap-1"><Users className="h-3 w-3" />{serverInfo.memberCount} members</span>
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{serverInfo.onlineCount} online</span>
             </div>
-            <p className="max-w-lg text-sm text-zinc-400">
-              Join the conversation. Share trade setups, strategies, P&amp;L screenshots, and ideas to make Stratify better.
-            </p>
-            {serverInfo && (
-              <div className="mt-3 flex items-center gap-4 text-xs">
-                <span className="flex items-center gap-1.5 text-zinc-500">
-                  <Users className="h-3.5 w-3.5" />
-                  {serverInfo.members} member{serverInfo.members !== 1 ? 's' : ''}
-                </span>
-                <span className="flex items-center gap-1.5 text-emerald-500">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  {serverInfo.online} online
-                </span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={copyInvite}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-zinc-300 transition hover:bg-white/10"
-            >
-              {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-              {copied ? 'Copied!' : 'Copy Invite'}
-            </button>
-            <a
-              href={DISCORD_INVITE}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#5865F2] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752C4]"
-            >
-              Join Discord
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={copyInvite} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-400 hover:bg-white/10">
+            {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+            {copied ? 'Copied' : 'Invite'}
+          </button>
+          <a href={DISCORD_INVITE} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-[#5865F2] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#4752C4]">
+            Open Discord <ExternalLink className="h-3 w-3" />
+          </a>
         </div>
       </div>
 
-      {/* ── Main Grid ── */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Channels — takes 2 cols */}
-        <div className="lg:col-span-2 rounded-2xl border border-white/10 bg-[#0b1220] p-5">
-          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-zinc-500">
-            <Hash className="h-4 w-4" />
-            Channels
-          </h2>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {CHANNELS.map((ch) => {
-              const Icon = ch.icon;
-              return (
-                <a
-                  key={ch.name}
-                  href={DISCORD_INVITE}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 transition hover:border-[#5865F2]/30 hover:bg-[#5865F2]/5"
-                >
-                  <Icon className={`h-5 w-5 mt-0.5 shrink-0 ${ch.color}`} />
-                  <div>
-                    <p className="text-sm font-medium text-zinc-200 group-hover:text-white">#{ch.name}</p>
-                    <p className="text-xs text-zinc-500">{ch.desc}</p>
-                  </div>
-                </a>
-              );
-            })}
+      {/* Main Layout */}
+      <div className="grid gap-4 lg:grid-cols-[200px_1fr_220px]">
+        {/* Channel List */}
+        <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-3">
+          <button
+            onClick={() => { setActiveChannel(null); setView('feed'); }}
+            className={`mb-2 w-full rounded-lg px-2 py-1.5 text-left text-xs font-medium transition ${!activeChannel ? 'bg-[#5865F2]/20 text-[#5865F2]' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}`}
+          >
+            📡 All Channels
+          </button>
+          <div className="space-y-0.5">
+            {channels.map((ch) => (
+              <button
+                key={ch.id}
+                onClick={() => { setActiveChannel(ch.id); setView('channel'); }}
+                className={`w-full rounded-lg px-2 py-1.5 text-left text-xs transition ${activeChannel === ch.id ? 'bg-white/10 text-white' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}`}
+              >
+                <Hash className="mr-1 inline h-3 w-3" />
+                {ch.name}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          {/* Rules */}
-          <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-zinc-500">
-              <Shield className="h-3.5 w-3.5 text-amber-400" />
-              Rules
-            </h3>
-            <div className="space-y-2.5">
-              {RULES.map((r, i) => (
-                <div key={i} className="flex gap-2.5">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-[10px] font-bold text-amber-400">{i + 1}</span>
-                  <div>
-                    <p className="text-xs font-medium text-zinc-300">{r.title}</p>
-                    <p className="text-[11px] text-zinc-600">{r.desc}</p>
+        {/* Message Feed */}
+        <div className="flex flex-col rounded-2xl border border-white/10 bg-[#0b1220]">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">
+            <span className="text-sm font-medium text-zinc-300">
+              {activeChannel ? `#${activeChannelName}` : 'All Channels'}
+            </span>
+            <button onClick={fetchMessages} className="text-zinc-600 hover:text-zinc-300">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-3" style={{ maxHeight: '500px', minHeight: '400px' }}>
+            {loading ? (
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-zinc-600" />
+              </div>
+            ) : displayMessages.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center text-zinc-600">
+                <MessageSquare className="mb-2 h-8 w-8" />
+                <p className="text-sm">No messages yet</p>
+                <p className="text-xs">Be the first to post!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {[...displayMessages].reverse().map((msg) => (
+                  <div key={msg.id} className="group flex gap-2.5">
+                    <img
+                      src={avatarUrl(msg.author)}
+                      alt=""
+                      className="h-8 w-8 shrink-0 rounded-full bg-zinc-800"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-xs font-semibold ${msg.author?.bot ? 'text-[#5865F2]' : 'text-zinc-300'}`}>
+                          {msg.author?.global_name || msg.author?.username || 'Unknown'}
+                          {msg.author?.bot && <span className="ml-1 rounded bg-[#5865F2]/20 px-1 py-0.5 text-[9px] uppercase">bot</span>}
+                        </span>
+                        {msg._channelName && !activeChannel && (
+                          <span className="text-[10px] text-zinc-700">#{msg._channelName}</span>
+                        )}
+                        <span className="text-[10px] text-zinc-700">{timeAgo(msg.timestamp)}</span>
+                      </div>
+                      <p className="text-xs text-zinc-400 break-words whitespace-pre-wrap">{msg.content}</p>
+                      {msg.attachments?.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {msg.attachments.map((a) => (
+                            <a key={a.id} href={a.url} target="_blank" rel="noopener" className="text-[10px] text-indigo-400 underline">{a.filename}</a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ))}
+                <div ref={bottomRef} />
+              </div>
+            )}
+          </div>
+
+          {/* Send bar (only when viewing a specific channel) */}
+          {activeChannel && (
+            <div className="border-t border-white/5 p-3">
+              <div className="flex gap-2">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  placeholder={`Message #${activeChannelName}...`}
+                  className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 outline-none focus:border-[#5865F2]/50"
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={sending || !input.trim()}
+                  className="rounded-lg bg-[#5865F2] px-3 py-2 text-xs font-medium text-white transition hover:bg-[#4752C4] disabled:opacity-40"
+                >
+                  {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-3">
+          {/* Rules */}
+          <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-3">
+            <h3 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+              <Shield className="h-3 w-3 text-amber-400" /> Rules
+            </h3>
+            <div className="space-y-1.5">
+              {RULES.map((r, i) => (
+                <p key={i} className="text-[10px] text-zinc-600">
+                  <span className="font-medium text-zinc-500">{i + 1}. {r.title}</span> — {r.desc}
+                </p>
               ))}
             </div>
           </div>
 
           {/* Quick Links */}
-          <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-4">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">Quick Links</h3>
+          <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-3">
+            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Links</h3>
             <div className="space-y-1">
-              <a href="https://stratify.associates" target="_blank" rel="noopener" className="flex items-center justify-between rounded-lg px-2 py-2 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-indigo-400">
-                <span className="flex items-center gap-2"><Sparkles className="h-3.5 w-3.5" />Stratify App</span>
-                <ChevronRight className="h-3.5 w-3.5" />
-              </a>
-              <a href="https://github.com/jtdesign7277-source" target="_blank" rel="noopener" className="flex items-center justify-between rounded-lg px-2 py-2 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-indigo-400">
-                <span className="flex items-center gap-2"><Hash className="h-3.5 w-3.5" />GitHub</span>
-                <ChevronRight className="h-3.5 w-3.5" />
-              </a>
-              <a href={DISCORD_INVITE} target="_blank" rel="noopener" className="flex items-center justify-between rounded-lg px-2 py-2 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-indigo-400">
-                <span className="flex items-center gap-2"><MessageSquare className="h-3.5 w-3.5" />Discord Server</span>
-                <ChevronRight className="h-3.5 w-3.5" />
-              </a>
+              {[
+                ['Stratify App', 'https://stratify.associates'],
+                ['GitHub', 'https://github.com/jtdesign7277-source'],
+                ['Discord', DISCORD_INVITE],
+              ].map(([label, url]) => (
+                <a key={label} href={url} target="_blank" rel="noopener" className="flex items-center justify-between rounded px-1.5 py-1 text-[11px] text-zinc-500 hover:bg-white/5 hover:text-indigo-400">
+                  {label}
+                  <ChevronRight className="h-3 w-3" />
+                </a>
+              ))}
             </div>
           </div>
 
           {/* Invite Card */}
-          <div className="rounded-2xl border border-[#5865F2]/20 bg-[#5865F2]/5 p-4 text-center">
-            <p className="mb-2 text-sm font-medium text-zinc-300">Share with traders</p>
-            <div className="mb-3 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs font-mono text-zinc-400 select-all">
-              {DISCORD_INVITE}
-            </div>
-            <button
-              onClick={copyInvite}
-              className="w-full rounded-lg bg-[#5865F2] py-2 text-sm font-semibold text-white transition hover:bg-[#4752C4]"
-            >
+          <div className="rounded-2xl border border-[#5865F2]/20 bg-[#5865F2]/5 p-3 text-center">
+            <p className="mb-1.5 text-[11px] font-medium text-zinc-400">Share with traders</p>
+            <div className="mb-2 rounded bg-black/30 px-2 py-1 text-[10px] font-mono text-zinc-500 select-all">{DISCORD_INVITE}</div>
+            <button onClick={copyInvite} className="w-full rounded-lg bg-[#5865F2] py-1.5 text-[11px] font-semibold text-white hover:bg-[#4752C4]">
               {copied ? '✓ Copied!' : 'Copy Invite Link'}
             </button>
           </div>
