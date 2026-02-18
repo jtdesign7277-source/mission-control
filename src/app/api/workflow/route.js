@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync, existsSync } from 'fs';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,18 +23,6 @@ const FALLBACK_JOBS = [
   { id: '950cd7b4', name: 'Load Stratify Status', agent: 'main', enabled: true, schedule_expr: '0 */4 * * *', schedule_human: 'Every 4 hours', category: 'system', color: '#6b7280', icon: '🔄', last_status: null, last_run_at: null, next_run_at: null, consecutive_errors: 0 },
   { id: '8770aca7', name: 'Sophia Weekly Market Recap', agent: 'main', enabled: true, schedule_expr: '0 18 * * 0', schedule_human: 'Sundays 6pm ET', category: 'content', color: '#ef4444', icon: '📺', last_status: null, last_run_at: null, next_run_at: null, consecutive_errors: 0 },
 ];
-
-function toET(date) {
-  const s = date.toLocaleString('en-US', { timeZone: 'America/New_York' });
-  return new Date(s);
-}
-
-function getETNow() {
-  const now = new Date();
-  const et = toET(now);
-  const diffMs = et.getTime() - now.getTime();
-  return { now, diffMs };
-}
 
 function asNonEmptyString(value) {
   if (typeof value !== 'string') return '';
@@ -65,10 +54,10 @@ function getNextRun(expr, now) {
   const min = parseCronField(minF);
   const hour = parseCronField(hourF);
   const dow = parseCronField(dowF);
-  const et = toET(now);
+  const base = new Date(now);
 
   for (let d = 0; d < 8; d++) {
-    const candidate = new Date(et);
+    const candidate = new Date(base);
     candidate.setDate(candidate.getDate() + d);
     const dayOfWeek = candidate.getDay();
     if (dow) {
@@ -90,9 +79,8 @@ function getNextRun(expr, now) {
       for (const m of minutes) {
         const c = new Date(candidate);
         c.setHours(h, m, 0, 0);
-        if (d === 0 && (c.getHours() < et.getHours() || (c.getHours() === et.getHours() && c.getMinutes() <= et.getMinutes()))) continue;
-        const { diffMs } = getETNow();
-        return new Date(c.getTime() - diffMs);
+        if (d === 0 && c <= base) continue;
+        return c;
       }
     }
   }
