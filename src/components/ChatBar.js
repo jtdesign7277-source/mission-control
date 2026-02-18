@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Send, ChevronDown, ChevronUp, Loader2, Terminal, X } from 'lucide-react';
 
 export default function ChatBar() {
@@ -8,16 +8,12 @@ export default function ChatBar() {
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
+  const scrollRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, []);
-
-  useEffect(() => {
-    if (expanded) scrollToBottom();
-  }, [messages, expanded, scrollToBottom]);
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -29,6 +25,9 @@ export default function ChatBar() {
     const updated = [...messages, userMsg];
     setMessages(updated);
     setStreaming(true);
+
+    // Scroll after user message renders
+    requestAnimationFrame(scrollToBottom);
 
     try {
       const res = await fetch('/api/chat', {
@@ -47,6 +46,7 @@ export default function ChatBar() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let assistantText = '';
+      let tokenCount = 0;
 
       setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
 
@@ -54,12 +54,19 @@ export default function ChatBar() {
         const { done, value } = await reader.read();
         if (done) break;
         assistantText += decoder.decode(value, { stream: true });
+        tokenCount++;
         setMessages((prev) => {
           const copy = [...prev];
           copy[copy.length - 1] = { role: 'assistant', content: assistantText };
           return copy;
         });
+        // Only auto-scroll every 5 chunks to prevent jitter
+        if (tokenCount % 5 === 0) {
+          requestAnimationFrame(scrollToBottom);
+        }
       }
+      // Final scroll
+      requestAnimationFrame(scrollToBottom);
     } catch (e) {
       setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${e.message}` }]);
     } finally {
@@ -76,9 +83,50 @@ export default function ChatBar() {
 
   return (
     <div className="w-full mb-4">
-      {/* Chat messages panel — expandable */}
+      {/* Input bar — always at top */}
+      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm px-4 py-2.5">
+        <Terminal className="h-4 w-4 text-emerald-400 shrink-0" />
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask Fred anything..."
+          disabled={streaming}
+          className="flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 outline-none font-mono"
+        />
+        {messages.length > 0 && !expanded && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition"
+          >
+            <span>{messages.length} msgs</span>
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        )}
+        {expanded && messages.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition"
+          >
+            <ChevronUp className="h-3 w-3" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={sendMessage}
+          disabled={streaming || !input.trim()}
+          className="flex items-center justify-center rounded-lg bg-emerald-500/20 border border-emerald-500/30 p-1.5 text-emerald-400 hover:bg-emerald-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        </button>
+      </div>
+
+      {/* Chat messages panel — below input, fixed height, internal scroll */}
       {expanded && messages.length > 0 && (
-        <div className="mb-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden">
+        <div className="mt-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
             <div className="flex items-center gap-2 text-xs text-zinc-400">
@@ -87,27 +135,21 @@ export default function ChatBar() {
               <span className="text-zinc-600">·</span>
               <span>{messages.length} messages</span>
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setMessages([])}
-                className="rounded p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition"
-                title="Clear chat"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setExpanded(false)}
-                className="rounded p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition"
-              >
-                <ChevronUp className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setMessages([])}
+              className="rounded p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition"
+              title="Clear chat"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
 
-          {/* Messages */}
-          <div className="max-h-[40vh] overflow-y-auto px-4 py-3 space-y-3">
+          {/* Messages — fixed height container with internal scroll only */}
+          <div
+            ref={scrollRef}
+            className="h-[35vh] overflow-y-auto overscroll-contain px-4 py-3 space-y-3"
+          >
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div
@@ -121,46 +163,9 @@ export default function ChatBar() {
                 </div>
               </div>
             ))}
-            <div ref={messagesEndRef} />
           </div>
         </div>
       )}
-
-      {/* Collapsed indicator */}
-      {!expanded && messages.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="mb-2 flex items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 hover:border-white/20 transition w-full"
-        >
-          <Terminal className="h-3 w-3 text-emerald-400" />
-          <span>{messages.length} messages with Fred</span>
-          <ChevronDown className="h-3 w-3 ml-auto" />
-        </button>
-      )}
-
-      {/* Input bar — always visible */}
-      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm px-4 py-2.5">
-        <Terminal className="h-4 w-4 text-emerald-400 shrink-0" />
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask Fred anything..."
-          disabled={streaming}
-          className="flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 outline-none font-mono"
-        />
-        <button
-          type="button"
-          onClick={sendMessage}
-          disabled={streaming || !input.trim()}
-          className="flex items-center justify-center rounded-lg bg-emerald-500/20 border border-emerald-500/30 p-1.5 text-emerald-400 hover:bg-emerald-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </button>
-      </div>
     </div>
   );
 }
