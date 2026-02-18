@@ -2,8 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 
-const SECOND_BRAIN_API = 'https://second-brain-beige-gamma.vercel.app/api/documents';
-
 const CATEGORY_STYLES = {
   social:  { bg: 'bg-blue-500/20',    text: 'text-blue-300' },
   intel:   { bg: 'bg-amber-500/20',   text: 'text-amber-300' },
@@ -151,9 +149,9 @@ export default function WorkflowBoard() {
     try {
       const [jobsRes, intelRes, socialRes, tradesRes] = await Promise.allSettled([
         fetch('/api/workflow').then(r => r.json()),
-        fetch(`${SECOND_BRAIN_API}?folder=cron:market-intel&limit=5`).then(r => r.json()),
-        fetch(`${SECOND_BRAIN_API}?folder=cron:x-engagement&limit=5`).then(r => r.json()),
-        fetch(`${SECOND_BRAIN_API}?folder=cron:trade-log&limit=5`).then(r => r.json()),
+        fetch('/api/workflow/runs?jobId=596a2309').then(r => r.json()),
+        fetch('/api/workflow/runs?jobId=e7dea1ba').then(r => r.json()),
+        fetch('/api/workflow/runs?jobId=75f2b428').then(r => r.json()),
       ]);
 
       if (jobsRes.status === 'fulfilled') {
@@ -163,9 +161,9 @@ export default function WorkflowBoard() {
         setSource(data.source || 'unknown');
         setSyncedAt(data.syncedAt || null);
       }
-      if (intelRes.status === 'fulfilled') setIntel(Array.isArray(intelRes.value) ? intelRes.value : intelRes.value.documents || []);
-      if (socialRes.status === 'fulfilled') setSocial(Array.isArray(socialRes.value) ? socialRes.value : socialRes.value.documents || []);
-      if (tradesRes.status === 'fulfilled') setTrades(Array.isArray(tradesRes.value) ? tradesRes.value : tradesRes.value.documents || []);
+      if (intelRes.status === 'fulfilled') setIntel(Array.isArray(intelRes.value?.runs) ? intelRes.value.runs : []);
+      if (socialRes.status === 'fulfilled') setSocial(Array.isArray(socialRes.value?.runs) ? socialRes.value.runs : []);
+      if (tradesRes.status === 'fulfilled') setTrades(Array.isArray(tradesRes.value?.runs) ? tradesRes.value.runs : []);
     } catch (e) {
       console.error('WorkflowBoard fetch error:', e);
     } finally {

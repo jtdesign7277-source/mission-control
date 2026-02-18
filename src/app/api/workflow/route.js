@@ -35,17 +35,33 @@ function getETNow() {
   return { now, diffMs };
 }
 
+function asNonEmptyString(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : '';
+}
+
 function parseCronField(field) {
-  if (!field || field === '*') return null;
-  if (field.startsWith('*/')) return { step: parseInt(field.slice(2)) };
-  if (field.includes(',')) return { list: field.split(',').map(Number) };
-  if (field.includes('-')) { const [a, b] = field.split('-').map(Number); return { range: [a, b] }; }
-  return { list: [parseInt(field)] };
+  const value = asNonEmptyString(field);
+  if (!value || value === '*') return null;
+  if (value.startsWith('*/')) {
+    const step = Number.parseInt(value.slice(2), 10);
+    return Number.isFinite(step) && step > 0 ? { step } : null;
+  }
+  if (value.includes(',')) return { list: value.split(',').map(v => Number.parseInt(v, 10)).filter(Number.isFinite) };
+  if (value.includes('-')) {
+    const [a, b] = value.split('-').map(v => Number.parseInt(v, 10));
+    if (Number.isFinite(a) && Number.isFinite(b)) return { range: [a, b] };
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? { list: [parsed] } : null;
 }
 
 function getNextRun(expr, now) {
-  if (!expr || !expr.includes(' ')) return new Date(now.getTime() + 3600000);
-  const [minF, hourF, , , dowF] = expr.split(' ');
+  const cronExpr = asNonEmptyString(expr);
+  if (!cronExpr || !cronExpr.includes(' ')) return new Date(now.getTime() + 3600000);
+  const [minF, hourF, , , dowF] = cronExpr.split(' ');
   const min = parseCronField(minF);
   const hour = parseCronField(hourF);
   const dow = parseCronField(dowF);
@@ -99,61 +115,86 @@ export async function GET() {
   let pendingActions = [];
   let source = 'hardcoded';
 
-  // Try Supabase
   try {
-    const sb = getSupabase();
-    if (!sb) throw new Error('no supabase');
-    const { data, error } = await sb.from('cron_jobs').select('*').order('synced_at', { ascending: false });
-    if (!error && data && data.length > 0) {
-      jobs = data;
-      source = 'supabase';
+    // Try Supabase
+    try {
+      const sb = getSupabase();
+      if (!sb) throw new Error('no supabase');
+      const { data, error } = await sb.from('cron_jobs').select('*').order('synced_at', { ascending: false });
+      if (!error && Array.isArray(data) && data.length > 0) {
+        jobs = data;
+        source = 'supabase';
+      }
+    } catch (e) { /* ignore */ }
+
+    // Try file fallback
+    if (!Array.isArray(jobs) || jobs.length === 0) {
+      try {
+        if (existsSync('/tmp/mc-cron-jobs.json')) {
+          const parsed = JSON.parse(readFileSync('/tmp/mc-cron-jobs.json', 'utf8'));
+          const parsedJobs = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.jobs) ? parsed.jobs : [];
+          if (parsedJobs.length > 0) {
+            jobs = parsedJobs;
+            source = 'file';
+          }
+        }
+      } catch (e) { /* ignore */ }
     }
-  } catch (e) { /* ignore */ }
 
-  // Try file fallback
-  if (jobs.length === 0) {
+    // Hardcoded fallback
+    if (!Array.isArray(jobs) || jobs.length === 0) {
+      jobs = FALLBACK_JOBS;
+      source = 'hardcoded';
+    }
+
+    // Compute nextRun/timeUntil for all jobs
+    jobs = jobs
+      .filter(job => job && typeof job === 'object')
+      .map(job => {
+        const scheduleExpr = asNonEmptyString(job.schedule_expr || job.schedule || job.schedule_human);
+        const nextRunFromState = job.next_run_at ? new Date(job.next_run_at) : null;
+        const nextRun = (nextRunFromState && Number.isFinite(nextRunFromState.getTime()) && nextRunFromState > now)
+          ? nextRunFromState
+          : getNextRun(scheduleExpr, now);
+        return {
+          ...job,
+          schedule_expr: scheduleExpr || '0 */4 * * *',
+          schedule: job.schedule_human || job.schedule || scheduleExpr || 'Every 4 hours',
+          nextRun: nextRun.toISOString(),
+          timeUntil: timeUntil(now, nextRun),
+        };
+      })
+      .sort((a, b) => new Date(a.nextRun) - new Date(b.nextRun));
+
+    // Pending actions
     try {
-      if (existsSync('/tmp/mc-cron-jobs.json')) {
-        jobs = JSON.parse(readFileSync('/tmp/mc-cron-jobs.json', 'utf8'));
-        source = 'file';
-      }
+      const sb = getSupabase();
+      if (!sb) throw new Error('no supabase');
+      const { data, error } = await sb.from('cron_actions').select('*').eq('status', 'pending');
+      if (!error && Array.isArray(data)) pendingActions = data;
     } catch (e) { /* ignore */ }
+
+    if (pendingActions.length === 0) {
+      try {
+        if (existsSync('/tmp/mc-cron-actions.json')) {
+          const all = JSON.parse(readFileSync('/tmp/mc-cron-actions.json', 'utf8'));
+          if (Array.isArray(all)) pendingActions = all.filter(a => a?.status === 'pending');
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    return NextResponse.json({ jobs, pendingActions, source, syncedAt: now.toISOString() });
+  } catch (error) {
+    console.error('Workflow GET fatal error:', error);
+    const fallbackJobs = FALLBACK_JOBS.map(job => {
+      const nextRun = getNextRun(job.schedule_expr, now);
+      return {
+        ...job,
+        schedule: job.schedule_human || job.schedule || job.schedule_expr,
+        nextRun: nextRun.toISOString(),
+        timeUntil: timeUntil(now, nextRun),
+      };
+    }).sort((a, b) => new Date(a.nextRun) - new Date(b.nextRun));
+    return NextResponse.json({ jobs: fallbackJobs, pendingActions: [], source: 'hardcoded', syncedAt: now.toISOString() });
   }
-
-  // Hardcoded fallback
-  if (jobs.length === 0) {
-    jobs = FALLBACK_JOBS;
-    source = 'hardcoded';
-  }
-
-  // Compute nextRun/timeUntil for all jobs
-  jobs = jobs.map(job => {
-    const nextRunFromState = job.next_run_at ? new Date(job.next_run_at) : null;
-    const nextRun = (nextRunFromState && nextRunFromState > now) ? nextRunFromState : getNextRun(job.schedule_expr, now);
-    return {
-      ...job,
-      schedule: job.schedule_human || job.schedule || job.schedule_expr,
-      nextRun: nextRun.toISOString(),
-      timeUntil: timeUntil(now, nextRun),
-    };
-  }).sort((a, b) => new Date(a.nextRun) - new Date(b.nextRun));
-
-  // Pending actions
-  try {
-    const sb = getSupabase();
-    if (!sb) throw new Error('no supabase');
-    const { data, error } = await sb.from('cron_actions').select('*').eq('status', 'pending');
-    if (!error && data) pendingActions = data;
-  } catch (e) { /* ignore */ }
-
-  if (pendingActions.length === 0) {
-    try {
-      if (existsSync('/tmp/mc-cron-actions.json')) {
-        const all = JSON.parse(readFileSync('/tmp/mc-cron-actions.json', 'utf8'));
-        pendingActions = all.filter(a => a.status === 'pending');
-      }
-    } catch (e) { /* ignore */ }
-  }
-
-  return NextResponse.json({ jobs, pendingActions, source, syncedAt: now.toISOString() });
 }
