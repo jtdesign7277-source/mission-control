@@ -156,17 +156,19 @@ function StatCard({ label, value, tone = 'text-white' }) {
 
 function EventRow({ event }) {
   const status = normalizeStatus(event.status);
+  const borderColor = BORDER_COLORS[status] || BORDER_COLORS.unknown;
+  const isActive = status === 'running' || status === 'building' || status === 'queued';
 
   return (
-    <div className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">
+    <div className={`rounded-lg border border-white/10 border-l-[3px] ${borderColor} bg-black/25 px-3 py-2`}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm text-zinc-100">{eventTitle(event)}</p>
           <p className="mt-1 text-xs text-zinc-500">{timeAgo(event.created_at)}</p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-zinc-400">
-          <span className={`h-2 w-2 rounded-full ${statusDotClass(status)}`} />
-          <span className={`uppercase tracking-wider ${statusTextClass(status)}`}>{prettyStatus(status)}</span>
+        <div className="flex items-center gap-2 text-xs">
+          <span className={`h-2 w-2 rounded-full ${statusDotClass(status)} ${isActive ? 'animate-pulse' : ''}`} />
+          <span className={`uppercase tracking-wider font-medium ${statusTextClass(status)}`}>{prettyStatus(status)}</span>
         </div>
       </div>
       {Number.isFinite(event.duration) && (
@@ -176,19 +178,35 @@ function EventRow({ event }) {
   );
 }
 
+const BORDER_COLORS = {
+  running: 'border-l-rose-400',
+  building: 'border-l-amber-400',
+  queued: 'border-l-sky-400',
+  completed: 'border-l-emerald-400',
+  ok: 'border-l-emerald-400',
+  ready: 'border-l-emerald-400',
+  success: 'border-l-emerald-400',
+  error: 'border-l-rose-400',
+  failed: 'border-l-rose-400',
+  canceled: 'border-l-slate-500',
+  unknown: 'border-l-zinc-500',
+};
+
 function DeploymentCard({ deployment }) {
   const status = normalizeStatus(deployment.status);
+  const borderColor = BORDER_COLORS[status] || BORDER_COLORS.unknown;
+  const isActive = status === 'running' || status === 'building' || status === 'queued';
 
   return (
-    <article className="rounded-xl border border-white/10 bg-black/35 p-4">
+    <article className={`rounded-xl border border-white/10 border-l-[3px] ${borderColor} bg-black/35 p-4`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-zinc-100">{deployment.project}</p>
           <p className="mt-1 truncate text-sm text-zinc-400">{deployment.commitMessage}</p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-zinc-400">
-          <span className={`h-2 w-2 rounded-full ${statusDotClass(status)}`} />
-          <span className={`uppercase tracking-wider ${statusTextClass(status)}`}>{prettyStatus(deployment.status)}</span>
+        <div className="flex items-center gap-2 text-xs">
+          <span className={`h-2 w-2 rounded-full ${statusDotClass(status)} ${isActive ? 'animate-pulse' : ''}`} />
+          <span className={`uppercase tracking-wider font-medium ${statusTextClass(status)}`}>{prettyStatus(deployment.status)}</span>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-zinc-500">
@@ -228,6 +246,7 @@ export default function MissionControlPage() {
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [emailDetailLoading, setEmailDetailLoading] = useState(false);
   const [emailActionLoading, setEmailActionLoading] = useState(false);
+  const [emailPanelView, setEmailPanelView] = useState('inbox');
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeSending, setComposeSending] = useState(false);
@@ -1041,7 +1060,7 @@ export default function MissionControlPage() {
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="flex items-center gap-2 text-sm uppercase tracking-[0.2em] text-zinc-300">
                   <Mail className="h-4 w-4 text-sky-300" />
-                  Inbox
+                  Email
                 </h2>
                 <div className="flex gap-2">
                   <button
@@ -1054,91 +1073,235 @@ export default function MissionControlPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={fetchInbox}
+                    onClick={() => (emailPanelView === 'inbox' ? fetchInbox() : fetchContacts())}
                     className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/5"
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${emailsLoading ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-3.5 w-3.5 ${emailPanelView === 'inbox' ? (emailsLoading ? 'animate-spin' : '') : (contactsLoading ? 'animate-spin' : '')}`} />
                     Refresh
                   </button>
                 </div>
               </div>
-              {emailsError && <p className="mb-2 text-xs text-rose-300">{emailsError}</p>}
+              <div className="mb-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEmailPanelView('inbox')}
+                  className={`rounded-lg px-3 py-1.5 text-xs transition ${
+                    emailPanelView === 'inbox'
+                      ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/40'
+                      : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-100'
+                  }`}
+                >
+                  Inbox ({emails.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmailPanelView('contacts')}
+                  className={`rounded-lg px-3 py-1.5 text-xs transition ${
+                    emailPanelView === 'contacts'
+                      ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/40'
+                      : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-100'
+                  }`}
+                >
+                  Contacts ({contacts.length})
+                </button>
+              </div>
+
+              {emailPanelView === 'contacts' && (
+                <div className="mb-3 space-y-2">
+                  <input
+                    value={contactSearch}
+                    onChange={(event) => setContactSearch(event.target.value)}
+                    placeholder="Search contacts..."
+                    className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={openCreateContact}
+                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 hover:bg-emerald-500/20"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportModalOpen(true)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-[11px] text-zinc-200 hover:bg-white/5"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      Import
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {emailPanelView === 'inbox' && emailsError && <p className="mb-2 text-xs text-rose-300">{emailsError}</p>}
+              {emailPanelView === 'contacts' && contactsError && <p className="mb-2 text-xs text-rose-300">{contactsError}</p>}
+
               <div className="space-y-2">
-                {emails.map((email) => (
-                  <button
-                    key={email.id}
-                    type="button"
-                    onClick={() => setSelectedEmailId(email.id)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                      selectedEmailId === email.id
-                        ? 'border-emerald-400/40 bg-emerald-500/10'
-                        : 'border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5'
-                    }`}
-                  >
-                    <p className="truncate text-xs uppercase tracking-wider text-zinc-500">{timeAgo(email.timestamp)}</p>
-                    <p className="mt-1 truncate text-sm font-medium text-zinc-100">{email.subject}</p>
-                    <p className="truncate text-xs text-zinc-400">{email.sender}</p>
-                    <p className="mt-1 truncate text-xs text-zinc-500">{email.snippet}</p>
-                    {email.unread && <p className="mt-1 text-[11px] text-amber-300">Unread</p>}
-                  </button>
-                ))}
+                {emailPanelView === 'inbox' &&
+                  emails.map((email) => (
+                    <button
+                      key={email.id}
+                      type="button"
+                      onClick={() => setSelectedEmailId(email.id)}
+                      className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                        selectedEmailId === email.id
+                          ? 'border-emerald-400/40 bg-emerald-500/10'
+                          : 'border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5'
+                      }`}
+                    >
+                      <p className="truncate text-xs uppercase tracking-wider text-zinc-500">{timeAgo(email.timestamp)}</p>
+                      <p className="mt-1 truncate text-sm font-medium text-zinc-100">{email.subject}</p>
+                      <p className="truncate text-xs text-zinc-400">{email.sender}</p>
+                      <p className="mt-1 truncate text-xs text-zinc-500">{email.snippet}</p>
+                      {email.unread && <p className="mt-1 text-[11px] text-amber-300">Unread</p>}
+                    </button>
+                  ))}
+
+                {emailPanelView === 'contacts' &&
+                  filteredContacts.map((contact) => (
+                    <button
+                      key={contact.id}
+                      type="button"
+                      onClick={() => setSelectedContactId(contact.id)}
+                      className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                        selectedContactId === contact.id
+                          ? 'border-emerald-400/40 bg-emerald-500/10'
+                          : 'border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5'
+                      }`}
+                    >
+                      <p className="truncate text-sm font-medium text-zinc-100">{contact.name}</p>
+                      <p className="truncate text-xs text-zinc-400">{contact.email}</p>
+                      <p className="mt-1 truncate text-xs text-zinc-500">{contact.company || 'No company'}</p>
+                      <p className="mt-1 text-[11px] text-zinc-600">{contact.category || 'Other'}</p>
+                    </button>
+                  ))}
+
+                {emailPanelView === 'inbox' && !emailsLoading && emails.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-xs text-zinc-500">No emails</p>
+                )}
+                {emailPanelView === 'contacts' && !contactsLoading && filteredContacts.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-xs text-zinc-500">No contacts</p>
+                )}
               </div>
             </article>
 
             <article className="rounded-2xl border border-white/10 bg-black/30 p-4">
-              {!selectedEmailId && (
-                <p className="text-sm text-zinc-500">Select an email to read.</p>
-              )}
+              {emailPanelView === 'inbox' && (
+                <>
+                  {!selectedEmailId && (
+                    <p className="text-sm text-zinc-500">Select an email to read.</p>
+                  )}
 
-              {selectedEmailId && emailDetailLoading && (
-                <div className="flex items-center gap-2 text-sm text-zinc-400">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading email...
-                </div>
-              )}
+                  {selectedEmailId && emailDetailLoading && (
+                    <div className="flex items-center gap-2 text-sm text-zinc-400">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading email...
+                    </div>
+                  )}
 
-              {selectedEmail && (
-                <div>
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                  {selectedEmail && (
                     <div>
-                      <h3 className="text-xl font-semibold text-zinc-50">{selectedEmail.subject}</h3>
-                      <p className="mt-1 text-sm text-zinc-400">From: {selectedEmail.sender}</p>
-                      <p className="text-xs text-zinc-500">{timeAgo(selectedEmail.timestamp)}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={openComposeForReply}
-                        className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-white/5"
-                      >
-                        <Reply className="h-3.5 w-3.5" />
-                        Reply
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => runEmailAction(selectedEmail.unread ? 'markRead' : 'markUnread')}
-                        disabled={emailActionLoading}
-                        className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-white/5 disabled:opacity-60"
-                      >
-                        {selectedEmail.unread ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Clock3 className="h-3.5 w-3.5" />}
-                        {selectedEmail.unread ? 'Mark Read' : 'Mark Unread'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => runEmailAction('archive')}
-                        disabled={emailActionLoading}
-                        className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-white/5 disabled:opacity-60"
-                      >
-                        <Archive className="h-3.5 w-3.5" />
-                        Archive
-                      </button>
-                    </div>
-                  </div>
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <h3 className="text-xl font-semibold text-zinc-50">{selectedEmail.subject}</h3>
+                          <p className="mt-1 text-sm text-zinc-400">From: {selectedEmail.sender}</p>
+                          <p className="text-xs text-zinc-500">{timeAgo(selectedEmail.timestamp)}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={openComposeForReply}
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-white/5"
+                          >
+                            <Reply className="h-3.5 w-3.5" />
+                            Reply
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => runEmailAction(selectedEmail.unread ? 'markRead' : 'markUnread')}
+                            disabled={emailActionLoading}
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-white/5 disabled:opacity-60"
+                          >
+                            {selectedEmail.unread ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Clock3 className="h-3.5 w-3.5" />}
+                            {selectedEmail.unread ? 'Mark Read' : 'Mark Unread'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => runEmailAction('archive')}
+                            disabled={emailActionLoading}
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-white/5 disabled:opacity-60"
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                            Archive
+                          </button>
+                        </div>
+                      </div>
 
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                    <pre className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">{selectedEmail.text || selectedEmail.snippet}</pre>
-                  </div>
-                </div>
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                        <pre className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">{selectedEmail.text || selectedEmail.snippet}</pre>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {emailPanelView === 'contacts' && (
+                <>
+                  {!selectedContact && (
+                    <p className="text-sm text-zinc-500">Select a contact to view details.</p>
+                  )}
+
+                  {selectedContact && (
+                    <div>
+                      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-xl font-semibold text-zinc-50">{selectedContact.name}</h3>
+                          <p className="mt-1 text-sm text-zinc-300">{selectedContact.email}</p>
+                          <p className="mt-1 text-xs text-zinc-500">{selectedContact.company || 'No company set'}</p>
+                        </div>
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-300">
+                          {selectedContact.category || 'Other'}
+                        </span>
+                      </div>
+
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-zinc-300">
+                        <p><span className="text-zinc-500">Phone:</span> {selectedContact.phone || '—'}</p>
+                        <p className="mt-2"><span className="text-zinc-500">Last emailed:</span> {selectedContact.last_emailed ? timeAgo(selectedContact.last_emailed) : 'never'}</p>
+                        <p className="mt-2"><span className="text-zinc-500">Created:</span> {timeAgo(selectedContact.created_at)}</p>
+                        {selectedContact.notes ? <p className="mt-3 text-zinc-400">{selectedContact.notes}</p> : null}
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openComposeForContact(selectedContact)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                          Send Email
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditContact(selectedContact)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-200 hover:bg-white/5"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteContact(selectedContact.id)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-rose-400/30 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </article>
           </section>
