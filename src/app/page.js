@@ -264,10 +264,10 @@ function LiveClock() {
   });
 
   return (
-    <div className="text-right font-mono">
-      <p className="text-xs text-zinc-300">{dateStr}</p>
+    <>
+      <p className="text-xs text-zinc-400">{dateStr}</p>
       <p className="text-sm text-zinc-100 mt-0.5">{timeStr}</p>
-    </div>
+    </>
   );
 }
 
@@ -982,16 +982,17 @@ export default function MissionControlPage() {
       <WeatherEffects condition={weather?.condition} isDay={weather?.isDay} />
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
         <header className="rounded-2xl border border-white/10 bg-gradient-to-r from-[#0b1220] via-[#0d1527] to-[#111a31] p-5 shadow-[0_0_80px_rgba(34,197,94,0.06)]">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] uppercase tracking-[0.35em] text-zinc-500">Mission Control</p>
-            <div className="flex items-center gap-4">
+          <div className="flex items-start justify-between mb-3">
+            <p className="text-[11px] uppercase tracking-[0.35em] text-zinc-500 pt-1">Mission Control</p>
+            <div className="flex items-end gap-5 font-mono">
               {weather && (
-                <span className="text-xs text-zinc-400">
-                  <span className="text-sm">{weather.icon}</span>{' '}
-                  {weather.temperature}°F · {weather.description} · Boston
-                </span>
+                <div className="text-right">
+                  <p className="text-xs text-zinc-400">{weather.icon} {weather.temperature}°F · {weather.description} · Boston</p>
+                </div>
               )}
-              <LiveClock />
+              <div className="text-right">
+                <LiveClock />
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-4">
