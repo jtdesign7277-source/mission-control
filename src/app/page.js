@@ -984,32 +984,7 @@ export default function MissionControlPage() {
     <main className="min-h-screen bg-transparent px-6 py-6 text-zinc-100">
       {/* WeatherEffects removed */}
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
-        <header className="relative overflow-hidden rounded-2xl border border-white/10 p-5 shadow-[0_0_80px_rgba(34,197,94,0.06)]">
-          {/* Old weather removed */}
-          <div className="relative z-10 flex items-start justify-between mb-3" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
-            <p className="text-[11px] uppercase tracking-[0.35em] text-white/70 pt-1">Mission Control</p>
-            <div className="flex items-end gap-5">
-              
-              <div className="text-right">
-                <LiveClock />
-              </div>
-            </div>
-          </div>
-          <div className="relative z-10 flex flex-wrap items-center justify-between gap-4" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
-            <div>
-              <h1 className="text-3xl font-semibold text-white" style={{ textShadow: '0 2px 6px rgba(0,0,0,0.5)' }}>Automation Command Center</h1>
-              <p className="mt-1 text-sm text-white/75">
-                Unified operations for activity streams, deployments, inbox automation, and secure API vault.
-              </p>
-            </div>
-            <div className="grid min-w-[300px] grid-cols-2 gap-3">
-              <StatCard label="Activity Events" value={String(events.length)} />
-              <StatCard label="Deployments" value={String(deployments.length)} />
-              <StatCard label="Unread Emails" value={String(emails.filter((item) => item.unread).length)} tone="text-amber-300" />
-              <StatCard label="Event Errors" value={String(totalErrors)} tone={totalErrors > 0 ? 'text-rose-300' : 'text-zinc-100'} />
-            </div>
-          </div>
-        </header>
+        {/* Old Mission Control header removed — replaced by weather banner tab */}
 
         <ChatBar />
 
