@@ -30,6 +30,7 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import ChatBar from '@/components/ChatBar';
 import BrainDump from '@/components/BrainDump';
+import WorkflowBoard from '@/components/WorkflowBoard';
 
 const VIEW_TABS = [
   { id: 'split', label: 'Split' },
@@ -39,6 +40,7 @@ const VIEW_TABS = [
   { id: 'email', label: 'Email' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'keys', label: 'Keys' },
+  { id: 'workflow', label: 'Workflow' },
   { id: 'braindump', label: 'Brain Dump' },
 ];
 
@@ -1681,6 +1683,7 @@ export default function MissionControlPage() {
             </div>
           </section>
         )}
+        {activeView === 'workflow' && <WorkflowBoard />}
         {activeView === 'braindump' && <BrainDump />}
       </div>
 
