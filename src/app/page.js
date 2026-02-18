@@ -34,6 +34,7 @@ const VIEW_TABS = [
   { id: 'kanban', label: 'Kanban' },
   { id: 'deployments', label: 'Deployments' },
   { id: 'email', label: 'Email' },
+  { id: 'contacts', label: 'Contacts' },
   { id: 'keys', label: 'Keys' },
 ];
 
@@ -55,6 +56,7 @@ const DEPLOYMENT_REFRESH_MS = 10000;
 const EMAIL_REFRESH_MS = 30000;
 
 const KEY_CATEGORIES = ['All', 'Trading', 'AI', 'Email', 'DevOps', 'Other'];
+const CONTACT_CATEGORIES = ['All', 'Client', 'Investor', 'Vendor', 'Team', 'Personal', 'Other'];
 
 const EMPTY_KEY_FORM = {
   service: '',
@@ -69,6 +71,15 @@ const EMPTY_COMPOSE_FORM = {
   subject: '',
   body: '',
   replyTo: '',
+};
+
+const EMPTY_CONTACT_FORM = {
+  name: '',
+  email: '',
+  company: '',
+  phone: '',
+  category: 'Client',
+  notes: '',
 };
 
 function normalizeStatus(value) {
@@ -199,6 +210,21 @@ export default function MissionControlPage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeSending, setComposeSending] = useState(false);
   const [composeForm, setComposeForm] = useState(EMPTY_COMPOSE_FORM);
+  const [composeToFocused, setComposeToFocused] = useState(false);
+
+  const [contacts, setContacts] = useState([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsError, setContactsError] = useState('');
+  const [contactSearch, setContactSearch] = useState('');
+  const [contactCategory, setContactCategory] = useState('All');
+  const [selectedContactId, setSelectedContactId] = useState('');
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState(null);
+  const [contactForm, setContactForm] = useState(EMPTY_CONTACT_FORM);
+  const [contactSaving, setContactSaving] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importCsvValue, setImportCsvValue] = useState('');
+  const [importingContacts, setImportingContacts] = useState(false);
 
   const [keys, setKeys] = useState([]);
   const [keysLoading, setKeysLoading] = useState(false);
@@ -320,6 +346,22 @@ export default function MissionControlPage() {
     }
   }, [keyCategory, keySearch]);
 
+  const fetchContacts = useCallback(async () => {
+    setContactsLoading(true);
+    try {
+      const res = await fetch('/api/contacts', { cache: 'no-store' });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to fetch contacts');
+
+      setContacts(payload.contacts || []);
+      setContactsError('');
+    } catch (error) {
+      setContactsError(error.message || 'Failed to fetch contacts');
+    } finally {
+      setContactsLoading(false);
+    }
+  }, []);
+
   const revealKey = useCallback(async (id) => {
     try {
       const res = await fetch(`/api/keys/${id}/reveal`, { cache: 'no-store' });
@@ -405,6 +447,125 @@ export default function MissionControlPage() {
     }
   }, [fetchKeys]);
 
+  const submitContactForm = useCallback(async () => {
+    const payload = {
+      name: contactForm.name.trim(),
+      email: contactForm.email.trim(),
+      company: contactForm.company.trim(),
+      phone: contactForm.phone.trim(),
+      category: contactForm.category,
+      notes: contactForm.notes,
+    };
+
+    if (!payload.name || !payload.email) {
+      setContactsError('Name and email are required.');
+      return;
+    }
+
+    setContactSaving(true);
+    try {
+      const url = editingContact ? `/api/contacts/${editingContact.id}` : '/api/contacts';
+      const method = editingContact ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to save contact');
+
+      setContactModalOpen(false);
+      setEditingContact(null);
+      setContactForm(EMPTY_CONTACT_FORM);
+      await fetchContacts();
+    } catch (error) {
+      setContactsError(error.message || 'Failed to save contact');
+    } finally {
+      setContactSaving(false);
+    }
+  }, [contactForm, editingContact, fetchContacts]);
+
+  const deleteContact = useCallback(async (id) => {
+    if (!window.confirm('Delete this contact?')) return;
+
+    try {
+      const res = await fetch(`/api/contacts/${id}`, { method: 'DELETE' });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to delete contact');
+
+      if (selectedContactId === id) {
+        setSelectedContactId('');
+      }
+
+      await fetchContacts();
+    } catch (error) {
+      setContactsError(error.message || 'Failed to delete contact');
+    }
+  }, [fetchContacts, selectedContactId]);
+
+  const importContacts = useCallback(async () => {
+    const lines = importCsvValue
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) {
+      setContactsError('Paste at least one CSV line in format: name,email');
+      return;
+    }
+
+    const parsedContacts = lines
+      .map((line) => {
+        const [rawName, rawEmail] = line.split(',');
+        const name = String(rawName || '').trim();
+        const email = String(rawEmail || '').trim();
+        return { name, email };
+      })
+      .filter((entry) => entry.name && entry.email)
+      .filter((entry) => {
+        const lowerName = entry.name.toLowerCase();
+        const lowerEmail = entry.email.toLowerCase();
+        return !(lowerName === 'name' && lowerEmail === 'email');
+      });
+
+    if (parsedContacts.length === 0) {
+      setContactsError('No valid rows found. Use one contact per line: name,email');
+      return;
+    }
+
+    setImportingContacts(true);
+    try {
+      const responses = await Promise.all(
+        parsedContacts.map((entry) =>
+          fetch('/api/contacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...entry,
+              category: 'Other',
+            }),
+          }),
+        ),
+      );
+
+      const failed = responses.filter((response) => !response.ok).length;
+      if (failed) {
+        setContactsError(`${failed} contact(s) failed to import.`);
+      } else {
+        setContactsError('');
+      }
+
+      setImportModalOpen(false);
+      setImportCsvValue('');
+      await fetchContacts();
+    } catch (error) {
+      setContactsError(error.message || 'Failed to import contacts');
+    } finally {
+      setImportingContacts(false);
+    }
+  }, [fetchContacts, importCsvValue]);
+
   const sendEmail = useCallback(async () => {
     if (!composeForm.to.trim() || !composeForm.subject.trim() || !composeForm.body.trim()) {
       setEmailsError('To, subject, and body are required.');
@@ -427,15 +588,38 @@ export default function MissionControlPage() {
       const payload = await res.json();
       if (!res.ok) throw new Error(payload.error || 'Failed to send email');
 
+      const recipients = composeForm.to
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean);
+
+      const matchingContacts = contacts.filter((contact) =>
+        recipients.includes(String(contact.email || '').trim().toLowerCase()),
+      );
+
+      if (matchingContacts.length > 0) {
+        await Promise.all(
+          matchingContacts.map((contact) =>
+            fetch(`/api/contacts/${contact.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ last_emailed: new Date().toISOString() }),
+            }),
+          ),
+        );
+      }
+
       setComposeOpen(false);
       setComposeForm(EMPTY_COMPOSE_FORM);
+      setComposeToFocused(false);
       await fetchInbox();
+      await fetchContacts();
     } catch (error) {
       setEmailsError(error.message || 'Failed to send email');
     } finally {
       setComposeSending(false);
     }
-  }, [composeForm, fetchInbox]);
+  }, [composeForm, contacts, fetchContacts, fetchInbox]);
 
   useEffect(() => {
     fetchDeployments();
@@ -457,6 +641,21 @@ export default function MissionControlPage() {
   useEffect(() => {
     fetchKeys();
   }, [fetchKeys]);
+
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
+
+  useEffect(() => {
+    if (!selectedContactId && contacts[0]?.id) {
+      setSelectedContactId(contacts[0].id);
+      return;
+    }
+
+    if (selectedContactId && !contacts.some((contact) => contact.id === selectedContactId)) {
+      setSelectedContactId(contacts[0]?.id || '');
+    }
+  }, [contacts, selectedContactId]);
 
   useEffect(() => {
     if (!supabaseReady) {
@@ -533,26 +732,73 @@ export default function MissionControlPage() {
   const eventColumns = useMemo(() => {
     const columns = {
       queued: [],
-      building: [],
-      ready: [],
-      error: [],
+      running: [],
+      completed: [],
+      failed: [],
     };
 
     events.forEach((event) => {
       const status = normalizeStatus(event.status);
-      if (status.includes('queue')) columns.queued.push(event);
-      else if (status.includes('build') || status.includes('running')) columns.building.push(event);
-      else if (status.includes('ready') || status.includes('ok') || status.includes('success')) columns.ready.push(event);
-      else columns.error.push(event);
+      if (status.includes('queue')) {
+        columns.queued.push(event);
+      } else if (status.includes('running') || status.includes('build') || status.includes('process')) {
+        columns.running.push(event);
+      } else if (status.includes('completed') || status.includes('ready') || status.includes('ok') || status.includes('success')) {
+        columns.completed.push(event);
+      } else if (status.includes('failed') || status.includes('error') || status.includes('cancel')) {
+        columns.failed.push(event);
+      } else {
+        columns.failed.push(event);
+      }
     });
 
     return columns;
   }, [events]);
 
   const totalErrors = useMemo(
-    () => events.filter((event) => normalizeStatus(event.status).includes('error')).length,
+    () =>
+      events.filter((event) => {
+        const status = normalizeStatus(event.status);
+        return status.includes('error') || status.includes('failed');
+      }).length,
     [events],
   );
+
+  const selectedContact = useMemo(
+    () => contacts.find((contact) => contact.id === selectedContactId) || null,
+    [contacts, selectedContactId],
+  );
+
+  const filteredContacts = useMemo(() => {
+    const query = contactSearch.trim().toLowerCase();
+
+    return contacts.filter((contact) => {
+      if (contactCategory !== 'All' && (contact.category || 'Other') !== contactCategory) {
+        return false;
+      }
+
+      if (!query) return true;
+
+      const name = String(contact.name || '').toLowerCase();
+      const email = String(contact.email || '').toLowerCase();
+      const company = String(contact.company || '').toLowerCase();
+
+      return name.includes(query) || email.includes(query) || company.includes(query);
+    });
+  }, [contacts, contactCategory, contactSearch]);
+
+  const composeContactSuggestions = useMemo(() => {
+    const query = composeForm.to.trim().toLowerCase();
+    if (!query) return [];
+
+    return contacts
+      .filter((contact) => {
+        const name = String(contact.name || '').toLowerCase();
+        const email = String(contact.email || '').toLowerCase();
+        return name.includes(query) || email.includes(query);
+      })
+      .slice(0, 8);
+  }, [composeForm.to, contacts]);
 
   const openComposeForReply = () => {
     if (!selectedEmail) return;
@@ -569,6 +815,34 @@ export default function MissionControlPage() {
     setEditingKey(null);
     setKeyForm(EMPTY_KEY_FORM);
     setKeyModalOpen(true);
+  };
+
+  const openComposeForContact = (contact) => {
+    if (!contact?.email) return;
+    setComposeForm({
+      ...EMPTY_COMPOSE_FORM,
+      to: contact.email,
+    });
+    setComposeOpen(true);
+  };
+
+  const openCreateContact = () => {
+    setEditingContact(null);
+    setContactForm(EMPTY_CONTACT_FORM);
+    setContactModalOpen(true);
+  };
+
+  const openEditContact = (contact) => {
+    setEditingContact(contact);
+    setContactForm({
+      name: contact.name || '',
+      email: contact.email || '',
+      company: contact.company || '',
+      phone: contact.phone || '',
+      category: contact.category || 'Other',
+      notes: contact.notes || '',
+    });
+    setContactModalOpen(true);
   };
 
   const openEditKey = (item) => {
@@ -694,10 +968,10 @@ export default function MissionControlPage() {
         {activeView === 'kanban' && (
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-4">
             {[
-              { id: 'queued', label: 'Queued' },
-              { id: 'building', label: 'Building' },
-              { id: 'ready', label: 'Ready' },
-              { id: 'error', label: 'Error' },
+              { id: 'queued', label: 'QUEUED' },
+              { id: 'running', label: 'RUNNING' },
+              { id: 'completed', label: 'COMPLETED' },
+              { id: 'failed', label: 'FAILED' },
             ].map((column) => (
               <article key={column.id} className="rounded-2xl border border-white/10 bg-black/30 p-3">
                 <h3 className="mb-3 text-sm uppercase tracking-[0.2em] text-zinc-400">{column.label}</h3>
@@ -848,6 +1122,153 @@ export default function MissionControlPage() {
           </section>
         )}
 
+        {activeView === 'contacts' && (
+          <section className="grid min-h-[70vh] grid-cols-1 gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+            <article className="rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                  <Mail className="h-4 w-4 text-sky-300" />
+                  Contacts
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={openCreateContact}
+                    className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Contact
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImportModalOpen(true)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-200 hover:bg-white/5"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Import CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchContacts}
+                    className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/5"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${contactsLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-4 flex flex-wrap gap-3">
+                <input
+                  value={contactSearch}
+                  onChange={(event) => setContactSearch(event.target.value)}
+                  placeholder="Search contacts by name or email..."
+                  className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 md:w-80"
+                />
+                <select
+                  value={contactCategory}
+                  onChange={(event) => setContactCategory(event.target.value)}
+                  className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100"
+                >
+                  {CONTACT_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {contactsError && <p className="mb-3 text-sm text-rose-300">{contactsError}</p>}
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {filteredContacts.map((contact) => (
+                  <button
+                    key={contact.id}
+                    type="button"
+                    onClick={() => setSelectedContactId(contact.id)}
+                    className={`rounded-xl border p-3 text-left transition ${
+                      selectedContactId === contact.id
+                        ? 'border-emerald-400/40 bg-emerald-500/10'
+                        : 'border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5'
+                    }`}
+                  >
+                    <p className="truncate text-sm font-semibold text-zinc-100">{contact.name}</p>
+                    <p className="mt-1 truncate text-xs text-zinc-400">{contact.email}</p>
+                    <p className="mt-1 truncate text-xs text-zinc-500">{contact.company || 'No company'}</p>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-300">
+                        {contact.category || 'Other'}
+                      </span>
+                      <span className="text-[11px] text-zinc-600">{timeAgo(contact.created_at)}</span>
+                    </div>
+                  </button>
+                ))}
+
+                {!contactsLoading && filteredContacts.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-white/10 px-3 py-5 text-sm text-zinc-500">
+                    No contacts found.
+                  </p>
+                )}
+              </div>
+            </article>
+
+            <article className="rounded-2xl border border-white/10 bg-black/30 p-4">
+              {!selectedContact && (
+                <p className="text-sm text-zinc-500">Select a contact to see details and quick actions.</p>
+              )}
+
+              {selectedContact && (
+                <div>
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-zinc-50">{selectedContact.name}</h3>
+                      <p className="mt-1 text-sm text-zinc-300">{selectedContact.email}</p>
+                      <p className="mt-1 text-xs text-zinc-500">{selectedContact.company || 'No company set'}</p>
+                    </div>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-300">
+                      {selectedContact.category || 'Other'}
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-zinc-300">
+                    <p><span className="text-zinc-500">Phone:</span> {selectedContact.phone || '—'}</p>
+                    <p className="mt-2"><span className="text-zinc-500">Last emailed:</span> {selectedContact.last_emailed ? timeAgo(selectedContact.last_emailed) : 'never'}</p>
+                    <p className="mt-2"><span className="text-zinc-500">Created:</span> {timeAgo(selectedContact.created_at)}</p>
+                    {selectedContact.notes ? <p className="mt-3 text-zinc-400">{selectedContact.notes}</p> : null}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openComposeForContact(selectedContact)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      Send Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEditContact(selectedContact)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-200 hover:bg-white/5"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteContact(selectedContact.id)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-rose-400/30 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )}
+            </article>
+          </section>
+        )}
+
         {activeView === 'keys' && (
           <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -983,6 +1404,7 @@ export default function MissionControlPage() {
                 onClick={() => {
                   setComposeOpen(false);
                   setComposeForm(EMPTY_COMPOSE_FORM);
+                  setComposeToFocused(false);
                 }}
                 className="rounded-lg border border-white/10 p-1.5 text-zinc-400 hover:bg-white/5"
               >
@@ -991,12 +1413,37 @@ export default function MissionControlPage() {
             </div>
 
             <div className="space-y-3">
-              <input
-                value={composeForm.to}
-                onChange={(event) => setComposeForm((prev) => ({ ...prev, to: event.target.value }))}
-                placeholder="To"
-                className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
-              />
+              <div className="relative">
+                <input
+                  value={composeForm.to}
+                  onFocus={() => setComposeToFocused(true)}
+                  onBlur={() => {
+                    setTimeout(() => setComposeToFocused(false), 120);
+                  }}
+                  onChange={(event) => setComposeForm((prev) => ({ ...prev, to: event.target.value }))}
+                  placeholder="To"
+                  className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                />
+                {composeToFocused && composeContactSuggestions.length > 0 && (
+                  <div className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-white/10 bg-[#0a0f1c] p-1">
+                    {composeContactSuggestions.map((contact) => (
+                      <button
+                        key={contact.id}
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setComposeForm((prev) => ({ ...prev, to: contact.email }));
+                          setComposeToFocused(false);
+                        }}
+                        className="w-full rounded-md px-2 py-1.5 text-left hover:bg-white/5"
+                      >
+                        <p className="truncate text-xs text-zinc-100">{contact.name}</p>
+                        <p className="truncate text-[11px] text-zinc-500">{contact.email}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <input
                 value={composeForm.subject}
                 onChange={(event) => setComposeForm((prev) => ({ ...prev, subject: event.target.value }))}
@@ -1018,6 +1465,7 @@ export default function MissionControlPage() {
                 onClick={() => {
                   setComposeOpen(false);
                   setComposeForm(EMPTY_COMPOSE_FORM);
+                  setComposeToFocused(false);
                 }}
                 className="rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5"
               >
@@ -1031,6 +1479,145 @@ export default function MissionControlPage() {
               >
                 {composeSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {contactModalOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-[#0b1220] p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-zinc-50">{editingContact ? 'Edit Contact' : 'Add Contact'}</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setContactModalOpen(false);
+                  setEditingContact(null);
+                  setContactForm(EMPTY_CONTACT_FORM);
+                }}
+                className="rounded-lg border border-white/10 p-1.5 text-zinc-400 hover:bg-white/5"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <input
+                value={contactForm.name}
+                onChange={(event) => setContactForm((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder="Name"
+                className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+              />
+              <input
+                value={contactForm.email}
+                onChange={(event) => setContactForm((prev) => ({ ...prev, email: event.target.value }))}
+                placeholder="Email"
+                className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+              />
+              <input
+                value={contactForm.company}
+                onChange={(event) => setContactForm((prev) => ({ ...prev, company: event.target.value }))}
+                placeholder="Company"
+                className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+              />
+              <input
+                value={contactForm.phone}
+                onChange={(event) => setContactForm((prev) => ({ ...prev, phone: event.target.value }))}
+                placeholder="Phone"
+                className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+              />
+              <select
+                value={contactForm.category}
+                onChange={(event) => setContactForm((prev) => ({ ...prev, category: event.target.value }))}
+                className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+              >
+                {CONTACT_CATEGORIES.filter((category) => category !== 'All').map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={contactForm.notes}
+                onChange={(event) => setContactForm((prev) => ({ ...prev, notes: event.target.value }))}
+                placeholder="Notes (optional)"
+                className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setContactModalOpen(false);
+                  setEditingContact(null);
+                  setContactForm(EMPTY_CONTACT_FORM);
+                }}
+                className="rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitContactForm}
+                disabled={contactSaving}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+              >
+                {contactSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importModalOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-[#0b1220] p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-zinc-50">Import Contacts (CSV)</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setImportModalOpen(false);
+                  setImportCsvValue('');
+                }}
+                className="rounded-lg border border-white/10 p-1.5 text-zinc-400 hover:bg-white/5"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="mb-3 text-xs text-zinc-500">Paste one row per line in format: <span className="text-zinc-300">name,email</span></p>
+            <textarea
+              value={importCsvValue}
+              onChange={(event) => setImportCsvValue(event.target.value)}
+              placeholder={'Jane Doe,jane@company.com\\nJohn Smith,john@fund.com'}
+              rows={10}
+              className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+            />
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setImportModalOpen(false);
+                  setImportCsvValue('');
+                }}
+                className="rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={importContacts}
+                disabled={importingContacts}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+              >
+                {importingContacts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Import
               </button>
             </div>
           </div>
