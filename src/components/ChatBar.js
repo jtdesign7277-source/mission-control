@@ -93,42 +93,110 @@ function FinanceSidebar() {
 }
 
 function SportsSidebar() {
+  const [scores, setScores] = useState([]);
+  const [activeSport, setActiveSport] = useState('nba');
+  const [loading, setLoading] = useState(true);
+
+  const SPORTS = [
+    { id: 'nba', label: '🏀 NBA', color: 'text-orange-400' },
+    { id: 'nhl', label: '🏒 NHL', color: 'text-sky-400' },
+    { id: 'nfl', label: '🏈 NFL', color: 'text-green-400' },
+    { id: 'mlb', label: '⚾ MLB', color: 'text-red-400' },
+  ];
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchScores = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${
+          activeSport === 'nfl' ? 'football' : activeSport === 'nba' ? 'basketball' : activeSport === 'nhl' ? 'hockey' : 'baseball'
+        }/${activeSport}/scoreboard`);
+        const data = await res.json();
+        if (!cancelled && data?.events) {
+          setScores(data.events.slice(0, 10));
+        }
+      } catch {}
+      if (!cancelled) setLoading(false);
+    };
+    fetchScores();
+    return () => { cancelled = true; };
+  }, [activeSport]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
         <Trophy className="h-3.5 w-3.5 text-yellow-400" />
-        <span className="text-sm font-semibold text-zinc-100">Sports</span>
+        <span className="text-sm font-semibold text-zinc-100">Live Sports</span>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <iframe
-          src="https://www.espn.com/espn/livecast"
-          className="h-full w-full border-0"
-          style={{ colorScheme: 'dark' }}
-          onError={(e) => { e.target.style.display = 'none'; }}
-        />
-        {/* Fallback if ESPN blocks iframe */}
-        <div className="flex flex-col gap-3 p-4">
-          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
-            <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wider mb-2">🏒 NHL</p>
-            <a href="https://www.espn.com/nhl/scoreboard" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-300 hover:text-white">Scores & Standings →</a>
+
+      {/* Sport tabs */}
+      <div className="flex gap-1 border-b border-white/10 px-2 py-1.5">
+        {SPORTS.map((sport) => (
+          <button
+            key={sport.id}
+            type="button"
+            onClick={() => setActiveSport(sport.id)}
+            className={`rounded-md px-2 py-1 text-[11px] transition ${
+              activeSport === sport.id
+                ? 'bg-white/10 text-white'
+                : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+            }`}
+          >
+            {sport.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Scores */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2">
+        {loading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
           </div>
-          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
-            <p className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-2">🏀 NBA</p>
-            <a href="https://www.espn.com/nba/scoreboard" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-300 hover:text-white">Scores & Standings →</a>
-          </div>
-          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
-            <p className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2">🏈 NFL</p>
-            <a href="https://www.espn.com/nfl/" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-300 hover:text-white">News & Schedule →</a>
-          </div>
-          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
-            <p className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">⚾ MLB</p>
-            <a href="https://www.espn.com/mlb/" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-300 hover:text-white">News & Schedule →</a>
-          </div>
-          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
-            <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">⚽ Soccer</p>
-            <a href="https://www.espn.com/soccer/" target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-300 hover:text-white">Scores & News →</a>
-          </div>
-        </div>
+        )}
+        {!loading && scores.length === 0 && (
+          <p className="text-center text-xs text-zinc-500 py-8">No games scheduled</p>
+        )}
+        {!loading && scores.map((game) => {
+          const competitors = game.competitions?.[0]?.competitors || [];
+          const home = competitors.find((c) => c.homeAway === 'home');
+          const away = competitors.find((c) => c.homeAway === 'away');
+          const status = game.status?.type?.shortDetail || game.status?.type?.description || '';
+          const isLive = game.status?.type?.state === 'in';
+
+          return (
+            <div key={game.id} className={`rounded-lg border px-3 py-2 ${isLive ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 bg-black/20'}`}>
+              <div className="flex items-center justify-between mb-1">
+                <span className={`text-[10px] uppercase tracking-wider ${isLive ? 'text-emerald-400 font-semibold' : 'text-zinc-500'}`}>
+                  {isLive ? '🔴 LIVE' : status}
+                </span>
+              </div>
+              {away && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {away.team?.logo && <img src={away.team.logo} alt="" className="h-4 w-4" />}
+                    <span className="text-xs text-zinc-200">{away.team?.abbreviation || away.team?.shortDisplayName}</span>
+                  </div>
+                  <span className={`text-sm font-mono font-semibold ${Number(away.score) > Number(home?.score) ? 'text-white' : 'text-zinc-500'}`}>
+                    {away.score ?? '-'}
+                  </span>
+                </div>
+              )}
+              {home && (
+                <div className="flex items-center justify-between mt-0.5">
+                  <div className="flex items-center gap-2">
+                    {home.team?.logo && <img src={home.team.logo} alt="" className="h-4 w-4" />}
+                    <span className="text-xs text-zinc-200">{home.team?.abbreviation || home.team?.shortDisplayName}</span>
+                  </div>
+                  <span className={`text-sm font-mono font-semibold ${Number(home.score) > Number(away?.score) ? 'text-white' : 'text-zinc-500'}`}>
+                    {home.score ?? '-'}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -220,21 +288,20 @@ export default function ChatBar() {
 
   return (
     <div className="w-full mb-4">
-      {/* Starter questions — show when no messages */}
-      {messages.length === 0 && (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {STARTER_QUESTIONS.map((q) => (
-            <button
-              key={q.text}
-              type="button"
-              onClick={() => sendMessage(q.text)}
-              className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-300 hover:border-emerald-400/30 hover:bg-emerald-500/10 hover:text-emerald-300 transition"
-            >
-              {q.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Starter questions — always visible */}
+      <div className="mb-3 flex flex-wrap gap-2">
+        {STARTER_QUESTIONS.map((q) => (
+          <button
+            key={q.text}
+            type="button"
+            onClick={() => sendMessage(q.text)}
+            disabled={streaming}
+            className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-300 hover:border-emerald-400/30 hover:bg-emerald-500/10 hover:text-emerald-300 transition disabled:opacity-40"
+          >
+            {q.label}
+          </button>
+        ))}
+      </div>
 
       {/* Chat panel with context sidebar */}
       {expanded && messages.length > 0 && (
