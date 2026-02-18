@@ -31,7 +31,7 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import ChatBar from '@/components/ChatBar';
 import BrainDump from '@/components/BrainDump';
 import WorkflowBoard from '@/components/WorkflowBoard';
-import TelegramChat from '@/components/TelegramChat';
+// TelegramChat removed
 // WeatherEffects removed — weather visuals contained in header only
 // Old WeatherWidget removed
 import CommunityHub from '@/components/CommunityHub';
@@ -60,7 +60,7 @@ const SPLIT_PANELS = [
   { id: 'workflow', label: 'Workflow', icon: 'Server' },
   { id: 'braindump', label: 'Brain Dump', icon: 'Brain' },
   { id: 'community', label: 'Community', icon: 'Rocket' },
-  { id: 'telegram', label: 'Telegram', icon: 'Send' },
+  { id: 'chat', label: 'Chat', icon: 'Send' },
 ];
 
 const SPLIT_PANEL_ICONS = {
@@ -310,7 +310,7 @@ function LiveClock() {
 export default function MissionControlPage() {
   const [activeView, setActiveView] = useState('split');
   const [splitPanels, setSplitPanels] = useState(['feed', 'deployments']);
-  const [telegramOpen, setTelegramOpen] = useState(false);
+  // telegramOpen removed
 
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
@@ -1185,8 +1185,8 @@ export default function MissionControlPage() {
         return <BrainDump />;
       case 'community':
         return <CommunityHub />;
-      case 'telegram':
-        return <TelegramChat embedded />;
+      case 'chat':
+        return <ChatBar />;
       case 'email':
         return (
           <>
@@ -1422,7 +1422,7 @@ export default function MissionControlPage() {
                 <article
                   key={panelId}
                   className={`relative rounded-2xl border border-white/10 bg-black/30 overflow-hidden ${
-                    panelId === 'telegram' ? 'p-0' : 'overflow-y-auto p-4'
+                    panelId === 'chat' ? 'p-0' : 'overflow-y-auto p-4'
                   }`}
                 >
                   <button
@@ -2121,18 +2121,7 @@ export default function MissionControlPage() {
         {activeView === 'community' && <CommunityHub />}
       </div>
 
-      <button
-        type="button"
-        onClick={() => setTelegramOpen((prev) => !prev)}
-        className={`fixed bottom-5 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-[#1a1a2e] text-xl text-zinc-100 shadow-lg shadow-black/40 transition-all hover:scale-105 hover:bg-[#22223b] ${
-          telegramOpen ? 'right-5 md:right-[416px]' : 'right-5 animate-pulse'
-        }`}
-        aria-label={telegramOpen ? 'Close Telegram chat' : 'Open Telegram chat'}
-      >
-        ✈️
-      </button>
-
-      {telegramOpen && <TelegramChat onClose={() => setTelegramOpen(false)} />}
+      {/* Telegram removed — use Chat in split view */}
 
       {composeOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
