@@ -11,6 +11,7 @@ function toCardinal(degrees) {
 }
 
 export function getWeatherTheme(condition, isDay) {
+  // lightBg = true means the gradient is bright enough that we need dark text
   if (condition === 'clear' && isDay) {
     return {
       background: 'linear-gradient(135deg, #1a3a5c 0%, #2a5f8f 30%, #4a90d9 60%, #87CEEB 100%)',
@@ -18,6 +19,7 @@ export function getWeatherTheme(condition, isDay) {
       glow: 'rgba(255, 196, 126, 0.35)',
       stars: false,
       fog: false,
+      lightBg: false,
     };
   }
   if (condition === 'clear' && !isDay) {
@@ -27,15 +29,17 @@ export function getWeatherTheme(condition, isDay) {
       glow: 'rgba(144, 169, 255, 0.2)',
       stars: true,
       fog: false,
+      lightBg: false,
     };
   }
   if (condition === 'cloudy' && isDay) {
     return {
-      background: 'linear-gradient(135deg, #3d5068 0%, #60748d 35%, #8fa4b8 70%, #a8b8c8 100%)',
-      atmosphere: 'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.12) 0%, transparent 40%), radial-gradient(circle at 20% 80%, rgba(100,125,154,0.18) 0%, transparent 35%)',
-      glow: 'rgba(179, 197, 220, 0.18)',
+      background: 'linear-gradient(135deg, #2a3a4d 0%, #3d5068 35%, #506880 70%, #607890 100%)',
+      atmosphere: 'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.08) 0%, transparent 40%), radial-gradient(circle at 20% 80%, rgba(100,125,154,0.12) 0%, transparent 35%)',
+      glow: 'rgba(140, 160, 190, 0.15)',
       stars: false,
       fog: false,
+      lightBg: false,
     };
   }
   if (condition === 'cloudy' && !isDay) {
@@ -45,6 +49,7 @@ export function getWeatherTheme(condition, isDay) {
       glow: 'rgba(130, 118, 177, 0.16)',
       stars: false,
       fog: false,
+      lightBg: false,
     };
   }
   if (condition === 'rain' || condition === 'drizzle') {
@@ -54,15 +59,17 @@ export function getWeatherTheme(condition, isDay) {
       glow: 'rgba(139, 181, 226, 0.16)',
       stars: false,
       fog: false,
+      lightBg: false,
     };
   }
   if (condition === 'snow') {
     return {
-      background: 'linear-gradient(135deg, #8a9aae 0%, #a4b4c4 30%, #c4d1de 65%, #d7e1ea 100%)',
-      atmosphere: 'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.3) 0%, transparent 35%), radial-gradient(circle at 20% 80%, rgba(176,194,212,0.18) 0%, transparent 35%)',
-      glow: 'rgba(242, 248, 255, 0.24)',
+      background: 'linear-gradient(135deg, #4a5a6e 0%, #6a7a8e 30%, #8a9aae 65%, #a4b4c4 100%)',
+      atmosphere: 'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 35%), radial-gradient(circle at 20% 80%, rgba(176,194,212,0.12) 0%, transparent 35%)',
+      glow: 'rgba(200, 215, 230, 0.18)',
       stars: false,
       fog: false,
+      lightBg: false,
     };
   }
   if (condition === 'storm') {
@@ -72,15 +79,17 @@ export function getWeatherTheme(condition, isDay) {
       glow: 'rgba(121, 109, 156, 0.16)',
       stars: false,
       fog: false,
+      lightBg: false,
     };
   }
   if (condition === 'fog') {
     return {
-      background: 'linear-gradient(135deg, #5a6370 0%, #7a838e 30%, #8a919d 65%, #a4acb5 100%)',
-      atmosphere: 'radial-gradient(circle at 80% 20%, rgba(245,249,255,0.16) 0%, transparent 35%), radial-gradient(circle at 20% 80%, rgba(146,155,166,0.14) 0%, transparent 35%)',
-      glow: 'rgba(223, 230, 238, 0.18)',
+      background: 'linear-gradient(135deg, #3a4350 0%, #4a5360 30%, #5a6370 65%, #6a737e 100%)',
+      atmosphere: 'radial-gradient(circle at 80% 20%, rgba(245,249,255,0.1) 0%, transparent 35%), radial-gradient(circle at 20% 80%, rgba(146,155,166,0.1) 0%, transparent 35%)',
+      glow: 'rgba(180, 190, 200, 0.14)',
       stars: false,
       fog: true,
+      lightBg: false,
     };
   }
   return isDay ? getWeatherTheme('clear', true) : getWeatherTheme('clear', false);
@@ -106,7 +115,8 @@ export function WeatherHeaderBackground({ condition, isDay }) {
         className="absolute -right-12 -top-12 h-40 w-40 rounded-full blur-3xl"
         style={{ backgroundColor: theme.glow }}
       />
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/[0.06] via-transparent to-black/[0.2]" />
+      {/* Dark scrim for text readability */}
+      <div className="absolute inset-0 rounded-2xl bg-black/30" />
     </>
   );
 }
@@ -124,15 +134,15 @@ export function WeatherInfo({ weather }) {
   return (
     <div className="text-right font-mono">
       <div className="flex items-baseline justify-end gap-2">
-        <span className="text-3xl font-semibold leading-none text-white drop-shadow-sm">
+        <span className="text-3xl font-semibold leading-none text-white" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
           {temperature === null ? '--' : Math.round(temperature)}°
         </span>
-        <span className="text-xl leading-none drop-shadow-sm">{weather.icon || '🌡️'}</span>
+        <span className="text-xl leading-none" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }}>{weather.icon || '🌡️'}</span>
       </div>
-      <p className="mt-1 text-xs text-white/80">
+      <p className="mt-1 text-xs text-white/90" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
         Feels like {feelsLike === null ? '--°' : `${Math.round(feelsLike)}°`}
       </p>
-      <p className="mt-0.5 text-[11px] text-white/60">
+      <p className="mt-0.5 text-[11px] text-white/70" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
         {weather.description}
         {windMph !== null ? ` · ${windMph}mph${windDir ? ` ${windDir}` : ''}` : ''}
         {humidity !== null ? ` · ${Math.round(humidity)}%` : ''}

@@ -268,8 +268,8 @@ function LiveClock() {
 
   return (
     <>
-      <p className="text-xs text-zinc-400">{dateStr}</p>
-      <p className="text-sm text-zinc-100 mt-0.5">{timeStr}</p>
+      <p className="text-xs text-white/70" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>{dateStr}</p>
+      <p className="text-sm text-white font-medium mt-0.5" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>{timeStr}</p>
     </>
   );
 }
@@ -986,8 +986,8 @@ export default function MissionControlPage() {
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
         <header className="relative overflow-hidden rounded-2xl border border-white/10 p-5 shadow-[0_0_80px_rgba(34,197,94,0.06)]">
           <WeatherHeaderBackground condition={weather?.condition} isDay={weather?.isDay} />
-          <div className="relative z-10 flex items-start justify-between mb-3">
-            <p className="text-[11px] uppercase tracking-[0.35em] text-white/50 pt-1">Mission Control</p>
+          <div className="relative z-10 flex items-start justify-between mb-3" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
+            <p className="text-[11px] uppercase tracking-[0.35em] text-white/70 pt-1">Mission Control</p>
             <div className="flex items-end gap-5">
               <WeatherInfo weather={weather} />
               <div className="text-right">
@@ -995,10 +995,10 @@ export default function MissionControlPage() {
               </div>
             </div>
           </div>
-          <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-4" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
             <div>
-              <h1 className="text-3xl font-semibold text-white drop-shadow-sm">Automation Command Center</h1>
-              <p className="mt-1 text-sm text-white/60">
+              <h1 className="text-3xl font-semibold text-white" style={{ textShadow: '0 2px 6px rgba(0,0,0,0.5)' }}>Automation Command Center</h1>
+              <p className="mt-1 text-sm text-white/75">
                 Unified operations for activity streams, deployments, inbox automation, and secure API vault.
               </p>
             </div>
