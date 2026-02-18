@@ -18,8 +18,8 @@ import {
 
 /* ─── config ────────────────────────────────────────────── */
 // Replace with your real Discord server ID once created
-const DISCORD_SERVER_ID = null; // e.g. '1234567890'
-const DISCORD_INVITE = null;    // e.g. 'https://discord.gg/xxxxx'
+const DISCORD_SERVER_ID = '1473541777829925078';
+const DISCORD_INVITE = 'https://discord.gg/DBb2W6Rk';
 
 const CHANNELS = [
   { name: 'general', icon: '💬', desc: 'Main hangout — intros, questions, vibes' },
