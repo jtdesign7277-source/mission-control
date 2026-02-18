@@ -1143,6 +1143,38 @@ export default function MissionControlPage() {
       case 'telegram':
         return <TelegramChat embedded />;
       case 'email':
+        return (
+          <>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <Mail className="h-4 w-4 text-sky-300" />
+                Email
+              </h2>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setComposeOpen(true)} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-white/5">
+                  <Plus className="h-3.5 w-3.5" /> Compose
+                </button>
+                <button type="button" onClick={fetchInbox} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/5">
+                  <RefreshCw className={`h-3.5 w-3.5 ${emailsLoading ? 'animate-spin' : ''}`} /> Refresh
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {emails.slice(0, 15).map((email) => (
+                <button key={email.id} type="button" onClick={() => { setSelectedEmailId(email.id); setActiveView('email'); }}
+                  className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-left hover:border-white/20 hover:bg-white/5">
+                  <p className="truncate text-xs text-zinc-500">{timeAgo(email.timestamp)}</p>
+                  <p className="mt-1 truncate text-sm font-medium text-zinc-100">{email.subject}</p>
+                  <p className="truncate text-xs text-zinc-400">{email.sender}</p>
+                  {email.unread && <p className="mt-1 text-[11px] text-amber-300">Unread</p>}
+                </button>
+              ))}
+              {!emailsLoading && emails.length === 0 && (
+                <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-xs text-zinc-500">No emails</p>
+              )}
+            </div>
+          </>
+        );
       case 'kanban':
       case 'contacts':
       case 'keys':
