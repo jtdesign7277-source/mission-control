@@ -53,6 +53,7 @@ const SPLIT_PANELS = [
   { id: 'feed', label: 'Activity Feed', icon: 'BellRing' },
   { id: 'deployments', label: 'Deployments', icon: 'Rocket' },
   { id: 'email', label: 'Email', icon: 'Mail' },
+  { id: 'cronjobs', label: 'Cron Jobs', icon: 'Clock3' },
   { id: 'kanban', label: 'Kanban', icon: 'CheckCircle2' },
   { id: 'contacts', label: 'Contacts', icon: 'Shield' },
   { id: 'keys', label: 'Keys', icon: 'KeyRound' },
@@ -66,6 +67,7 @@ const SPLIT_PANEL_ICONS = {
   BellRing,
   Rocket,
   Mail,
+  Clock3,
   CheckCircle2,
   Shield,
   KeyRound,
@@ -365,9 +367,46 @@ export default function MissionControlPage() {
 
   const [weather, setWeather] = useState(null);
 
+  // Cron Jobs state
+  const [cronJobs, setCronJobs] = useState([]);
+  const [cronLoading, setCronLoading] = useState(false);
+  const [cronActionLoading, setCronActionLoading] = useState({});
+
   const supabaseReady = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
+
+  const fetchCronJobs = useCallback(async () => {
+    setCronLoading(true);
+    try {
+      const res = await fetch('/api/workflow', { cache: 'no-store' });
+      const data = await res.json();
+      if (res.ok && data?.jobs) setCronJobs(data.jobs);
+    } catch {}
+    setCronLoading(false);
+  }, []);
+
+  const handleCronAction = useCallback(async (jobId, action) => {
+    setCronActionLoading((prev) => ({ ...prev, [jobId]: action }));
+    try {
+      const res = await fetch('/api/workflow/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, action }),
+      });
+      if (res.ok) {
+        // Optimistically update UI
+        if (action === 'delete') {
+          setCronJobs((prev) => prev.filter((j) => j.id !== jobId));
+        } else if (action === 'pause') {
+          setCronJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, enabled: false } : j));
+        } else if (action === 'resume') {
+          setCronJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, enabled: true } : j));
+        }
+      }
+    } catch {}
+    setCronActionLoading((prev) => ({ ...prev, [jobId]: null }));
+  }, []);
 
   const fetchWeather = useCallback(async () => {
     try {
@@ -818,6 +857,12 @@ export default function MissionControlPage() {
   }, [fetchWeather]);
 
   useEffect(() => {
+    fetchCronJobs();
+    const timer = setInterval(fetchCronJobs, 60000);
+    return () => clearInterval(timer);
+  }, [fetchCronJobs]);
+
+  useEffect(() => {
     fetchDeployments();
     const timer = setInterval(fetchDeployments, DEPLOYMENT_REFRESH_MS);
     return () => clearInterval(timer);
@@ -1234,6 +1279,72 @@ export default function MissionControlPage() {
               ))}
               {!keysLoading && keys.length === 0 && (
                 <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-xs text-zinc-500">No keys stored</p>
+              )}
+            </div>
+          </>
+        );
+      case 'cronjobs':
+        return (
+          <>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <Clock3 className="h-4 w-4 text-sky-300" />
+                Cron Jobs
+              </h2>
+              <button type="button" onClick={fetchCronJobs} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/5">
+                <RefreshCw className={`h-3.5 w-3.5 ${cronLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {cronJobs.map((job) => {
+                const actionInProgress = cronActionLoading[job.id];
+                const isError = job.last_status === 'error';
+                return (
+                  <div key={job.id} className={`rounded-lg border px-3 py-2 ${job.enabled ? 'border-white/10 bg-black/20' : 'border-white/5 bg-black/10 opacity-60'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+                          <span>{job.icon || '⚙️'}</span>
+                          <span className="truncate">{job.name}</span>
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500">{job.schedule || job.schedule_expr}</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${isError ? 'bg-rose-400' : job.enabled ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                          <span className={`text-[11px] ${isError ? 'text-rose-400' : job.enabled ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                            {isError ? 'Error' : job.enabled ? 'Active' : 'Paused'}
+                          </span>
+                          {job.timeUntil && job.enabled && (
+                            <span className="text-[11px] text-zinc-600">· next: {job.timeUntil}</span>
+                          )}
+                          {isError && job.consecutive_errors > 0 && (
+                            <span className="text-[11px] text-rose-400/70">· {job.consecutive_errors} failures</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={!!actionInProgress}
+                          onClick={() => handleCronAction(job.id, job.enabled ? 'pause' : 'resume')}
+                          className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-zinc-300 hover:bg-white/5 disabled:opacity-40"
+                        >
+                          {actionInProgress === 'pause' || actionInProgress === 'resume' ? '...' : job.enabled ? 'Pause' : 'Resume'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!!actionInProgress}
+                          onClick={() => { if (confirm(`Delete "${job.name}"?`)) handleCronAction(job.id, 'delete'); }}
+                          className="rounded-md border border-rose-500/20 px-2 py-1 text-[11px] text-rose-400 hover:bg-rose-500/10 disabled:opacity-40"
+                        >
+                          {actionInProgress === 'delete' ? '...' : '✕'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {!cronLoading && cronJobs.length === 0 && (
+                <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-xs text-zinc-500">No cron jobs found</p>
               )}
             </div>
           </>
