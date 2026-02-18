@@ -232,6 +232,42 @@ function DeploymentCard({ deployment }) {
   );
 }
 
+function LiveClock() {
+  const [now, setNow] = useState(null);
+
+  useEffect(() => {
+    const fmt = () => new Date();
+    setNow(fmt());
+    const id = setInterval(() => setNow(fmt()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!now) return null;
+
+  const dateStr = now.toLocaleDateString('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const timeStr = now.toLocaleTimeString('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'short',
+  });
+
+  return (
+    <div className="text-right font-mono">
+      <p className="text-xs text-zinc-300">{dateStr}</p>
+      <p className="text-sm text-zinc-100 mt-0.5">{timeStr}</p>
+    </div>
+  );
+}
+
 export default function MissionControlPage() {
   const [activeView, setActiveView] = useState('split');
 
@@ -910,10 +946,13 @@ export default function MissionControlPage() {
     <main className="min-h-screen bg-transparent px-6 py-6 text-zinc-100">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-5">
         <header className="rounded-2xl border border-white/10 bg-gradient-to-r from-[#0b1220] via-[#0d1527] to-[#111a31] p-5 shadow-[0_0_80px_rgba(34,197,94,0.06)]">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] uppercase tracking-[0.35em] text-zinc-500">Mission Control</p>
+            <LiveClock />
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.35em] text-zinc-500">Mission Control</p>
-              <h1 className="mt-2 text-3xl font-semibold text-zinc-50">Automation Command Center</h1>
+              <h1 className="text-3xl font-semibold text-zinc-50">Automation Command Center</h1>
               <p className="mt-1 text-sm text-zinc-400">
                 Unified operations for activity streams, deployments, inbox automation, and secure API vault.
               </p>
