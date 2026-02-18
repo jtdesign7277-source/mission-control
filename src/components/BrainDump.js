@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { ChevronDown, ChevronRight, Copy, Check } from 'lucide-react';
 
 const SECTIONS = [
   {
@@ -94,11 +94,37 @@ function CollapsibleSection({ title, items }) {
 }
 
 export default function BrainDump() {
+  const [copied, setCopied] = useState(false);
+
+  const copyAll = useCallback(() => {
+    const text = SECTIONS.map((section) => {
+      const header = section.title;
+      const bullets = section.items.map((item) => `- ${item}`).join('\n');
+      return `## ${header}\n${bullets}`;
+    }).join('\n\n');
+
+    const full = `# Brain Dump — Stratify Reference\n\n${text}`;
+    navigator.clipboard.writeText(full).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, []);
+
   return (
     <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
-      <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-zinc-50">
-        🧠 Brain Dump — Stratify Reference
-      </h2>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-50">
+          🧠 Brain Dump — Stratify Reference
+        </h2>
+        <button
+          type="button"
+          onClick={copyAll}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-200 hover:bg-white/5 transition"
+        >
+          {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? 'Copied!' : 'Copy All'}
+        </button>
+      </div>
       <div className="space-y-2">
         {SECTIONS.map((section) => (
           <CollapsibleSection key={section.title} title={section.title} items={section.items} />
