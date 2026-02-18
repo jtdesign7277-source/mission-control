@@ -128,21 +128,21 @@ export default function CommunityHub() {
   return (
     <div className="space-y-4 p-2">
       {/* Hero */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-gradient-to-r from-[#5865F2]/15 via-indigo-500/10 to-purple-500/10 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-white/[0.03] p-5">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-white">
             <MessageSquare className="h-5 w-5 text-[#5865F2]" />
             Stratify Community
           </h1>
           {serverInfo && (
-            <div className="mt-1 flex items-center gap-3 text-sm text-zinc-500">
+            <div className="mt-1 flex items-center gap-3 text-sm text-zinc-400">
               <span className="flex items-center gap-1"><Users className="h-3 w-3" />{serverInfo.memberCount} members</span>
               <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{serverInfo.onlineCount} online</span>
             </div>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={copyInvite} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-zinc-400 hover:bg-white/10">
+          <button onClick={copyInvite} className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-sm text-zinc-400 hover:bg-white/10">
             {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
             {copied ? 'Copied' : 'Invite'}
           </button>
@@ -153,9 +153,9 @@ export default function CommunityHub() {
       </div>
 
       {/* Main Layout */}
-      <div className="grid gap-4 lg:grid-cols-[260px_1fr_300px]" style={{ minHeight: 'calc(100vh - 380px)' }}>
+      <div className="grid gap-4 lg:grid-cols-[300px_1fr_340px]" style={{ minHeight: 'calc(100vh - 380px)' }}>
         {/* Channel List */}
-        <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-3">
+        <div className="rounded-2xl p-3">
           <button
             onClick={() => { setActiveChannel(null); setView('feed'); }}
             className={`mb-2 w-full rounded-lg px-2 py-1.5 text-left text-sm font-medium transition ${!activeChannel ? 'bg-[#5865F2]/20 text-[#5865F2]' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}`}
@@ -177,10 +177,10 @@ export default function CommunityHub() {
         </div>
 
         {/* Message Feed */}
-        <div className="flex flex-col rounded-2xl border border-white/10 bg-[#0b1220] min-h-0">
+        <div className="flex flex-col rounded-2xl min-h-0">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">
-            <span className="text-sm font-medium text-zinc-300">
+            <span className="text-base font-medium text-zinc-200">
               {activeChannel ? `#${activeChannelName}` : 'All Channels'}
             </span>
             <button onClick={fetchMessages} className="text-zinc-600 hover:text-zinc-300">
@@ -220,7 +220,7 @@ export default function CommunityHub() {
                         )}
                         <span className="text-sm text-zinc-700">{timeAgo(msg.timestamp)}</span>
                       </div>
-                      <p className="text-sm text-zinc-400 break-words whitespace-pre-wrap">{msg.content}</p>
+                      <p className="text-base text-zinc-400 break-words whitespace-pre-wrap">{msg.content}</p>
                       {msg.attachments?.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {msg.attachments.map((a) => (
@@ -238,14 +238,14 @@ export default function CommunityHub() {
 
           {/* Send bar (only when viewing a specific channel) */}
           {activeChannel && (
-            <div className="border-t border-white/5 p-3">
+            <div className="border-t border-white/5 p-4">
               <div className="flex gap-2">
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                   placeholder={`Message #${activeChannelName}...`}
-                  className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-[#5865F2]/50"
+                  className="flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-[#5865F2]/50"
                 />
                 <button
                   onClick={sendMessage}
@@ -262,13 +262,13 @@ export default function CommunityHub() {
         {/* Sidebar */}
         <div className="space-y-3">
           {/* Rules */}
-          <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-3">
-            <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-zinc-500">
+          <div className="rounded-2xl p-3">
+            <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-zinc-400">
               <Shield className="h-3 w-3 text-amber-400" /> Rules
             </h3>
             <div className="space-y-1.5">
               {RULES.map((r, i) => (
-                <p key={i} className="text-sm text-zinc-600">
+                <p key={i} className="text-sm text-zinc-400">
                   <span className="font-medium text-zinc-500">{i + 1}. {r.title}</span> — {r.desc}
                 </p>
               ))}
@@ -276,15 +276,15 @@ export default function CommunityHub() {
           </div>
 
           {/* Quick Links */}
-          <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-3">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-zinc-500">Links</h3>
+          <div className="rounded-2xl p-3">
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-zinc-400">Links</h3>
             <div className="space-y-1">
               {[
                 ['Stratify App', 'https://stratify.associates'],
                 ['GitHub', 'https://github.com/jtdesign7277-source'],
                 ['Discord', DISCORD_INVITE],
               ].map(([label, url]) => (
-                <a key={label} href={url} target="_blank" rel="noopener" className="flex items-center justify-between rounded px-1.5 py-1 text-sm text-zinc-500 hover:bg-white/5 hover:text-indigo-400">
+                <a key={label} href={url} target="_blank" rel="noopener" className="flex items-center justify-between rounded px-1.5 py-1 text-sm text-zinc-400 hover:bg-white/5 hover:text-indigo-400">
                   {label}
                   <ChevronRight className="h-3 w-3" />
                 </a>
@@ -293,7 +293,7 @@ export default function CommunityHub() {
           </div>
 
           {/* Invite Card */}
-          <div className="rounded-2xl border border-[#5865F2]/20 bg-[#5865F2]/5 p-3 text-center">
+          <div className="rounded-2xl p-3 text-center">
             <p className="mb-1.5 text-sm font-medium text-zinc-400">Share with traders</p>
             <div className="mb-2 rounded bg-black/30 px-2 py-1 text-xs font-mono text-zinc-500 select-all">{DISCORD_INVITE}</div>
             <button onClick={copyInvite} className="w-full rounded-lg bg-[#5865F2] py-1.5 text-sm font-semibold text-white hover:bg-[#4752C4]">
