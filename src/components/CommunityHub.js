@@ -153,7 +153,7 @@ export default function CommunityHub() {
       </div>
 
       {/* Main Layout */}
-      <div className="grid gap-4 lg:grid-cols-[180px_1fr_200px]" style={{ minHeight: 'calc(100vh - 380px)' }}>
+      <div className="grid gap-4 lg:grid-cols-[220px_1fr_260px]" style={{ minHeight: 'calc(100vh - 380px)' }}>
         {/* Channel List */}
         <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-3">
           <button
