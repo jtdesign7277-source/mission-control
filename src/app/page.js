@@ -1175,8 +1175,39 @@ export default function MissionControlPage() {
             </div>
           </>
         );
-      case 'kanban':
       case 'contacts':
+        return (
+          <>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <Shield className="h-4 w-4 text-violet-300" />
+                Contacts
+              </h2>
+              <div className="flex gap-2">
+                <button type="button" onClick={openCreateContact} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-white/5">
+                  <Plus className="h-3.5 w-3.5" /> Add
+                </button>
+                <button type="button" onClick={fetchContacts} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/5">
+                  <RefreshCw className={`h-3.5 w-3.5 ${contactsLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {contacts.map((contact) => (
+                <button key={contact.id} type="button" onClick={() => { setSelectedContactId(contact.id); setActiveView('contacts'); }}
+                  className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-left hover:border-white/20 hover:bg-white/5">
+                  <p className="truncate text-sm font-medium text-zinc-100">{contact.name}</p>
+                  <p className="truncate text-xs text-zinc-400">{contact.email}</p>
+                  <p className="mt-1 truncate text-xs text-zinc-500">{contact.company || 'No company'}</p>
+                </button>
+              ))}
+              {!contactsLoading && contacts.length === 0 && (
+                <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-xs text-zinc-500">No contacts</p>
+              )}
+            </div>
+          </>
+        );
+      case 'kanban':
       case 'keys':
       default:
         return renderSplitPlaceholder(panelId);
