@@ -290,6 +290,8 @@ export default function MissionControlPage() {
   const [emailDetailLoading, setEmailDetailLoading] = useState(false);
   const [emailActionLoading, setEmailActionLoading] = useState(false);
   const [emailPanelView, setEmailPanelView] = useState('inbox');
+  const [sentEmails, setSentEmails] = useState([]);
+  const [sentLoading, setSentLoading] = useState(false);
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeSending, setComposeSending] = useState(false);
@@ -376,6 +378,20 @@ export default function MissionControlPage() {
       setEmailsLoading(false);
     }
   }, [selectedEmailId]);
+
+  const fetchSent = useCallback(async () => {
+    setSentLoading(true);
+    try {
+      const res = await fetch('/api/email/sent', { cache: 'no-store' });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to fetch sent messages');
+      setSentEmails(payload.emails || []);
+    } catch (error) {
+      setEmailsError(error.message || 'Failed to fetch sent messages');
+    } finally {
+      setSentLoading(false);
+    }
+  }, []);
 
   const fetchEmailDetail = useCallback(async (id) => {
     if (!id) return;
@@ -1150,10 +1166,10 @@ export default function MissionControlPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => (emailPanelView === 'inbox' ? fetchInbox() : fetchContacts())}
+                    onClick={() => emailPanelView === 'inbox' ? fetchInbox() : emailPanelView === 'sent' ? fetchSent() : fetchContacts()}
                     className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs text-zinc-300 hover:bg-white/5"
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${emailPanelView === 'inbox' ? (emailsLoading ? 'animate-spin' : '') : (contactsLoading ? 'animate-spin' : '')}`} />
+                    <RefreshCw className={`h-3.5 w-3.5 ${emailPanelView === 'inbox' ? (emailsLoading ? 'animate-spin' : '') : emailPanelView === 'sent' ? (sentLoading ? 'animate-spin' : '') : (contactsLoading ? 'animate-spin' : '')}`} />
                     Refresh
                   </button>
                 </div>
@@ -1180,6 +1196,17 @@ export default function MissionControlPage() {
                   }`}
                 >
                   Contacts ({contacts.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmailPanelView('sent'); fetchSent(); }}
+                  className={`rounded-lg px-3 py-1.5 text-xs transition ${
+                    emailPanelView === 'sent'
+                      ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/40'
+                      : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-100'
+                  }`}
+                >
+                  Sent ({sentEmails.length})
                 </button>
               </div>
 
@@ -1255,8 +1282,30 @@ export default function MissionControlPage() {
                     </button>
                   ))}
 
+                {emailPanelView === 'sent' &&
+                  sentEmails.map((email) => (
+                    <button
+                      key={email.id}
+                      type="button"
+                      onClick={() => { setSelectedEmailId(email.id); setEmailPanelView('sent'); }}
+                      className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                        selectedEmailId === email.id
+                          ? 'border-emerald-400/40 bg-emerald-500/10'
+                          : 'border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5'
+                      }`}
+                    >
+                      <p className="truncate text-xs uppercase tracking-wider text-zinc-500">{timeAgo(email.timestamp)}</p>
+                      <p className="mt-1 truncate text-sm font-medium text-zinc-100">{email.subject}</p>
+                      <p className="truncate text-xs text-zinc-400">To: {email.recipient || email.sender}</p>
+                      <p className="mt-1 truncate text-xs text-zinc-500">{email.snippet}</p>
+                    </button>
+                  ))}
+
                 {emailPanelView === 'inbox' && !emailsLoading && emails.length === 0 && (
                   <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-xs text-zinc-500">No emails</p>
+                )}
+                {emailPanelView === 'sent' && !sentLoading && sentEmails.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-xs text-zinc-500">No sent messages</p>
                 )}
                 {emailPanelView === 'contacts' && !contactsLoading && filteredContacts.length === 0 && (
                   <p className="rounded-lg border border-dashed border-white/10 px-3 py-4 text-xs text-zinc-500">No contacts</p>
@@ -1265,7 +1314,7 @@ export default function MissionControlPage() {
             </article>
 
             <article className="rounded-2xl border border-white/10 bg-black/30 p-4">
-              {emailPanelView === 'inbox' && (
+              {(emailPanelView === 'inbox' || emailPanelView === 'sent') && (
                 <>
                   {!selectedEmailId && (
                     <p className="text-sm text-zinc-500">Select an email to read.</p>
