@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import ChatBar from '@/components/ChatBar';
 
 const VIEW_TABS = [
   { id: 'split', label: 'Split' },
@@ -918,6 +919,8 @@ export default function MissionControlPage() {
             </div>
           </div>
         </header>
+
+        <ChatBar />
 
         <section className="rounded-2xl border border-white/10 bg-black/35 p-3">
           <div className="flex flex-wrap items-center gap-2">
