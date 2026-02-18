@@ -128,7 +128,7 @@ export default function CommunityHub() {
   return (
     <div className="space-y-4 p-2">
       {/* Hero */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-white/[0.03] p-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-transparent p-5">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-white">
             <MessageSquare className="h-5 w-5 text-[#5865F2]" />
@@ -142,7 +142,7 @@ export default function CommunityHub() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={copyInvite} className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-sm text-zinc-400 hover:bg-white/10">
+          <button onClick={copyInvite} className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-400 hover:bg-white/[0.06]">
             {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
             {copied ? 'Copied' : 'Invite'}
           </button>
@@ -158,7 +158,7 @@ export default function CommunityHub() {
         <div className="rounded-2xl p-3">
           <button
             onClick={() => { setActiveChannel(null); setView('feed'); }}
-            className={`mb-2 w-full rounded-lg px-2 py-1.5 text-left text-sm font-medium transition ${!activeChannel ? 'bg-[#5865F2]/20 text-[#5865F2]' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}`}
+            className={`mb-2 w-full rounded-lg px-2 py-1.5 text-left text-sm font-medium transition ${!activeChannel ? 'bg-[#5865F2]/10 text-[#5865F2]' : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300'}`}
           >
             📡 All Channels
           </button>
@@ -167,7 +167,7 @@ export default function CommunityHub() {
               <button
                 key={ch.id}
                 onClick={() => { setActiveChannel(ch.id); setView('channel'); }}
-                className={`w-full rounded-lg px-2 py-1.5 text-left text-xs transition ${activeChannel === ch.id ? 'bg-white/10 text-white' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}`}
+                className={`w-full rounded-lg px-2 py-1.5 text-left text-xs transition ${activeChannel === ch.id ? 'bg-white/[0.06] text-white' : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300'}`}
               >
                 <Hash className="mr-1 inline h-3 w-3" />
                 {ch.name}
@@ -245,7 +245,7 @@ export default function CommunityHub() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                   placeholder={`Message #${activeChannelName}...`}
-                  className="flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-[#5865F2]/50"
+                  className="flex-1 rounded-lg bg-white/[0.03] px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-[#5865F2]/50"
                 />
                 <button
                   onClick={sendMessage}
@@ -284,7 +284,7 @@ export default function CommunityHub() {
                 ['GitHub', 'https://github.com/jtdesign7277-source'],
                 ['Discord', DISCORD_INVITE],
               ].map(([label, url]) => (
-                <a key={label} href={url} target="_blank" rel="noopener" className="flex items-center justify-between rounded px-1.5 py-1 text-sm text-zinc-400 hover:bg-white/5 hover:text-indigo-400">
+                <a key={label} href={url} target="_blank" rel="noopener" className="flex items-center justify-between rounded px-1.5 py-1 text-sm text-zinc-400 hover:bg-white/[0.04] hover:text-indigo-400">
                   {label}
                   <ChevronRight className="h-3 w-3" />
                 </a>
@@ -295,7 +295,7 @@ export default function CommunityHub() {
           {/* Invite Card */}
           <div className="rounded-2xl p-3 text-center">
             <p className="mb-1.5 text-sm font-medium text-zinc-400">Share with traders</p>
-            <div className="mb-2 rounded bg-black/30 px-2 py-1 text-xs font-mono text-zinc-500 select-all">{DISCORD_INVITE}</div>
+            <div className="mb-2 rounded bg-black/10 px-2 py-1 text-xs font-mono text-zinc-500 select-all">{DISCORD_INVITE}</div>
             <button onClick={copyInvite} className="w-full rounded-lg bg-[#5865F2] py-1.5 text-sm font-semibold text-white hover:bg-[#4752C4]">
               {copied ? '✓ Copied!' : 'Copy Invite Link'}
             </button>
