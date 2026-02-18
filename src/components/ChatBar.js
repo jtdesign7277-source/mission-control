@@ -35,8 +35,9 @@ function extractTickers(messages) {
 }
 
 function detectSidebarType(messages) {
-  // Check messages in reverse (latest first)
+  // Only check USER messages to avoid re-triggering on streaming assistant responses
   for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role !== 'user') continue;
     const text = messages[i].content || '';
     if (SPORTS_KEYWORDS.test(text)) return 'sports';
     if (FINANCE_KEYWORDS.test(text)) return 'finance';
@@ -145,11 +146,13 @@ export default function ChatBar() {
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
-  const activeTicker = useMemo(() => extractTickers(messages), [messages]);
+  // Only recalculate sidebar on user messages (not streaming updates)
+  const userMessages = useMemo(() => messages.filter((m) => m.role === 'user'), [messages]);
+  const activeTicker = useMemo(() => extractTickers(messages), [userMessages.length]);
   const sidebarType = useMemo(() => {
     if (activeTicker) return 'stock';
     return detectSidebarType(messages);
-  }, [messages, activeTicker]);
+  }, [userMessages.length, activeTicker]);
   const showSidebar = sidebarType !== null;
 
   const sendMessage = async (overrideText) => {
