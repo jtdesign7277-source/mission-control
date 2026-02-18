@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/lib/supabase/admin';
-import { decryptValue } from '@/lib/cryptoVault';
+import { decodeStoredValue, encryptValue } from '@/lib/cryptoVault';
 
 export async function GET(_request, { params }) {
   const id = params?.id;
@@ -20,11 +20,35 @@ export async function GET(_request, { params }) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const value = decryptValue(data.key_value);
+    let decoded;
+    try {
+      decoded = decodeStoredValue(data.key_value);
+    } catch (decodeError) {
+      if (decodeError?.code === 'DECRYPT_FAILED') {
+        return NextResponse.json(
+          {
+            error: 'Stored key cannot be decrypted with current encryption settings. Re-save this key in Edit to repair it.',
+            requiresResave: true,
+          },
+          { status: 422 },
+        );
+      }
+      throw decodeError;
+    }
+
+    const value = decoded.value;
+
+    const updates = {
+      last_used: new Date().toISOString(),
+    };
+
+    if (decoded.needsReencrypt) {
+      updates.key_value = encryptValue(value);
+    }
 
     await supabase
       .from('api_keys')
-      .update({ last_used: new Date().toISOString() })
+      .update(updates)
       .eq('id', id);
 
     return NextResponse.json({ id, keyValue: value });

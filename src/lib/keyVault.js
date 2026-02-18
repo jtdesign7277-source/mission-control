@@ -1,4 +1,4 @@
-import { decryptValue, encryptValue, maskKeyValue } from '@/lib/cryptoVault';
+import { decodeStoredValue, encryptValue, maskKeyValue } from '@/lib/cryptoVault';
 
 export function normalizeCategory(category) {
   const value = String(category || '').trim();
@@ -9,8 +9,8 @@ export function toMaskedRecord(row) {
   let masked = '****';
 
   try {
-    const decrypted = decryptValue(row.key_value);
-    masked = maskKeyValue(decrypted);
+    const decoded = decodeStoredValue(row.key_value);
+    masked = maskKeyValue(decoded.value);
   } catch {
     masked = '****';
   }
