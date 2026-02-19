@@ -1,7 +1,21 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ExternalLink, Search, Package, Star, ChevronDown, ChevronRight } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { ExternalLink, Search, Package, Star, ChevronDown, ChevronRight, AlertTriangle, Zap } from 'lucide-react';
+
+const BrokerAPIArchitecture = dynamic(() => import('./BrokerAPIArchitecture'), { ssr: false });
+
+const PRIORITY_ITEMS = [
+  {
+    id: 'broker-api',
+    name: 'Alpaca Broker API Architecture',
+    desc: 'Multi-user brokerage system — each Stratify user gets their own funded account. This is THE critical infrastructure for going live.',
+    status: 'critical',
+    tags: ['broker', 'alpaca', 'multi-user', 'infrastructure'],
+    hasComponent: true,
+  },
+];
 
 const TOOLKIT = [
   {
@@ -123,6 +137,8 @@ export default function ToolkitBoard() {
     })).filter((cat) => cat.items.length > 0);
   }, [search, filter]);
 
+  const [expandedPriority, setExpandedPriority] = useState(null);
+
   const totalInstalled = TOOLKIT.reduce((sum, cat) => sum + cat.items.filter((i) => i.status === 'installed').length, 0);
   const totalAvailable = TOOLKIT.reduce((sum, cat) => sum + cat.items.filter((i) => i.status === 'available').length, 0);
 
@@ -138,6 +154,48 @@ export default function ToolkitBoard() {
           <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-400" />{totalInstalled} installed</span>
           <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-zinc-500" />{totalAvailable} available</span>
         </div>
+      </div>
+
+      {/* ⭐ Priority / Critical Items */}
+      <div className="mb-6 space-y-3">
+        {PRIORITY_ITEMS.map((item) => (
+          <div key={item.id} className="relative rounded-xl border-2 border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-red-500/10 overflow-hidden">
+            {/* Glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-400/5 to-transparent pointer-events-none" />
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-400 via-orange-400 to-red-400" />
+            
+            <button type="button" onClick={() => setExpandedPriority(expandedPriority === item.id ? null : item.id)}
+              className="relative w-full px-5 py-4 text-left hover:bg-white/5 transition">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 border border-amber-500/30">
+                  <Zap className="h-4 w-4 text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Critical Priority</span>
+                  </div>
+                  <h3 className="text-base font-bold text-zinc-100">{item.name}</h3>
+                  <p className="mt-1 text-sm text-zinc-400 leading-relaxed">{item.desc}</p>
+                  <div className="mt-2 flex gap-1.5 flex-wrap">
+                    {item.tags.map((tag) => (
+                      <span key={tag} className="rounded px-2 py-0.5 text-[10px] bg-amber-500/10 text-amber-300/80 border border-amber-500/20">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="shrink-0 mt-2">
+                  {expandedPriority === item.id ? <ChevronDown className="h-5 w-5 text-amber-400" /> : <ChevronRight className="h-5 w-5 text-amber-400" />}
+                </div>
+              </div>
+            </button>
+            
+            {expandedPriority === item.id && item.hasComponent && (
+              <div className="border-t border-amber-500/20 p-4 bg-black/20">
+                <BrokerAPIArchitecture />
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Search + filter */}
