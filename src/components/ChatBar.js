@@ -5,6 +5,7 @@ import { Send, ChevronDown, ChevronUp, Loader2, Terminal, X, TrendingUp, Trophy 
 
 const STARTER_QUESTIONS = [
   { label: '📈 How is $TSLA performing today?', text: 'How is $TSLA performing today?' },
+  { label: '📊 Show me 1HR chart of $AAPL', text: 'Show me 1 hour chart of $AAPL' },
   { label: '🏦 What\'s the Fed fund rate?', text: 'What\'s the current Federal Funds rate and what\'s the Fed\'s latest outlook?' },
   { label: '🏆 Trending sports', text: 'What\'s trending in sports right now? NFL, NBA, NHL playoffs, any big games or trades happening?' },
 ];
