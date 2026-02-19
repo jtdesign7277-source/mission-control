@@ -338,6 +338,9 @@ export default function ChatBar() {
   const [manualTicker, setManualTicker] = useState(null);
   const [chartInterval, setChartInterval] = useState('D');
   const [activeArtifact, setActiveArtifact] = useState(null);
+  const [showChart, setShowChart] = useState(false);
+  const [showSports, setShowSports] = useState(false);
+  const [panelTicker, setPanelTicker] = useState('SPY');
   const scrollRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
@@ -502,6 +505,45 @@ export default function ChatBar() {
           </div>
         )}
       </div>
+
+      {/* ── Mini panel tabs ── */}
+      <div className="mt-2 flex gap-2">
+        <button type="button" onClick={() => setShowChart((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition ${
+            showChart ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-300' : 'border-white/10 bg-black/30 text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+          }`}>
+          <BarChart3 className="h-3.5 w-3.5" />
+          {panelTicker ? `$${panelTicker} Chart` : 'Stock Chart'}
+        </button>
+        <button type="button" onClick={() => setShowSports((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition ${
+            showSports ? 'border-yellow-400/40 bg-yellow-500/15 text-yellow-300' : 'border-white/10 bg-black/30 text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+          }`}>
+          <Trophy className="h-3.5 w-3.5" />
+          Live Sports
+        </button>
+      </div>
+
+      {/* ── Panels: Chart left, Sports right ── */}
+      {(showChart || showSports) && (
+        <div className="mt-2 flex gap-3">
+          {showChart && (
+            <div className={showSports ? 'w-1/2' : 'w-full'}>
+              <ChartCard
+                ticker={panelTicker}
+                interval={chartInterval}
+                onTickerChange={(t) => setPanelTicker(t)}
+                onIntervalChange={(iv) => setChartInterval(iv)}
+              />
+            </div>
+          )}
+          {showSports && (
+            <div className={showChart ? 'w-1/2' : 'w-full'}>
+              <SportsCard sport="nba" />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
