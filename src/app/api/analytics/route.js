@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 // Aggregate analytics from all platforms
 // Called by cron to snapshot, and by frontend for live data
 
-const CACHE_TTL = 300_000; // 5 min
+const CACHE_TTL = 60_000; // 60s — matches frontend refresh interval
 let cache = { data: null, ts: 0 };
 
 async function fetchVercelStats() {
@@ -47,8 +49,8 @@ async function fetchStripeStats() {
       return sum;
     }, 0);
 
-    // Total customers
-    const custRes = await fetch('https://api.stripe.com/v1/customers?limit=1', {
+    // Total customers — use /v1/customers search with count
+    const custRes = await fetch('https://api.stripe.com/v1/customers?limit=100', {
       headers: { Authorization: `Basic ${Buffer.from(key + ':').toString('base64')}` },
     });
     const custData = custRes.ok ? await custRes.json() : {};
@@ -56,7 +58,7 @@ async function fetchStripeStats() {
     return {
       subscribers: subs.length,
       mrr: Math.round(mrr * 100) / 100,
-      totalCustomers: custData.total_count || null,
+      totalCustomers: custData.data?.length ?? 0,
     };
   } catch (e) {
     return { error: e.message };
@@ -146,5 +148,10 @@ export async function GET() {
   };
 
   cache = { data: result, ts: now };
-  return NextResponse.json(result);
+  return NextResponse.json(result, {
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'CDN-Cache-Control': 'no-store',
+    },
+  });
 }
