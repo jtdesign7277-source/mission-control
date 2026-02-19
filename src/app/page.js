@@ -37,8 +37,10 @@ import WorkflowBoard from '@/components/WorkflowBoard';
 import CommunityHub from '@/components/CommunityHub';
 import RedditDashboard from '@/components/RedditDashboard';
 import ToolkitBoard from '@/components/ToolkitBoard';
+import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 
 const VIEW_TABS = [
+  { id: 'analytics', label: 'Analytics' },
   { id: 'split', label: 'Split' },
   { id: 'feed', label: 'Feed' },
   { id: 'kanban', label: 'Kanban' },
@@ -2123,6 +2125,7 @@ export default function MissionControlPage() {
             </div>
           </section>
         )}
+        {activeView === 'analytics' && <AnalyticsDashboard />}
         {activeView === 'workflow' && <WorkflowBoard />}
         {activeView === 'braindump' && <BrainDump />}
         {activeView === 'community' && <CommunityHub />}
