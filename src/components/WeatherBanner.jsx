@@ -206,9 +206,13 @@ export default function WeatherBanner() {
     return () => clearInterval(iv);
   }, []);
 
-  const info = weather ? getWeatherInfo(weather.weather_code) : { label: "Loading", type: "clear", icon: "⏳" };
+  const hour = parseInt(time.toLocaleTimeString("en-US", { hour: "numeric", hour12: false, timeZone: "America/New_York" }));
+  const isNight = hour >= 19 || hour < 6;
+  const rawInfo = weather ? getWeatherInfo(weather.weather_code) : { label: "Loading", type: "clear", icon: "⏳" };
+  const info = isNight ? { ...rawInfo, icon: rawInfo.type === 'clear' ? '🌙' : rawInfo.type === 'cloudy' ? '☁️' : rawInfo.icon } : rawInfo;
   const wType = info.type;
-  const bg = BACKGROUNDS[wType] || BACKGROUNDS.clear;
+  const nightBg = "linear-gradient(135deg, #0a0e1a 0%, #0e1428 40%, #141c30 70%, #1a1a3e 100%)";
+  const bg = isNight && (wType === 'clear' || wType === 'cloudy') ? nightBg : (BACKGROUNDS[wType] || BACKGROUNDS.clear);
   const temp = weather ? Math.round(weather.temperature_2m) : "--";
   const feelsLike = weather ? Math.round(weather.apparent_temperature) : "--";
   const wind = weather ? Math.round(weather.wind_speed_10m) : "--";
@@ -233,7 +237,9 @@ export default function WeatherBanner() {
   const showRain = ["drizzle", "rain", "heavyrain", "thunder"].includes(wType);
   const showSnow = ["snow", "heavysnow"].includes(wType);
   const showClouds = ["cloudy", "overcast", "rain", "heavyrain", "drizzle", "thunder", "snow", "heavysnow"].includes(wType);
-  const showSun = wType === "clear";
+  const showSun = wType === "clear" && !isNight;
+  const showMoon = wType === "clear" && isNight;
+  const showStars = isNight && !showClouds;
   const showFog = wType === "fog";
   const showLightning = wType === "thunder";
   const isHeavy = ["heavyrain", "heavysnow"].includes(wType);
@@ -283,6 +289,18 @@ export default function WeatherBanner() {
         {showRain && <RainSplash count={isHeavy ? 20 : 10} />}
         {showSnow && <Snowflakes count={isHeavy ? 50 : 30} heavy={isHeavy} />}
         {showSun && <SunGlow />}
+        {showMoon && <div style={{
+          position: "absolute", top: 8, right: 60,
+          width: 35, height: 35, borderRadius: "50%",
+          background: "radial-gradient(circle at 35% 35%, rgba(220,230,255,0.9), rgba(180,195,230,0.4) 50%, transparent 70%)",
+          boxShadow: "0 0 30px rgba(180,200,240,0.3), 0 0 60px rgba(160,180,220,0.1)",
+          pointerEvents: "none",
+        }} />}
+        {showStars && <div style={{
+          position: "absolute", inset: 0,
+          backgroundImage: "radial-gradient(circle at 8% 15%, rgba(255,255,255,0.8) 0 1px, transparent 2px), radial-gradient(circle at 22% 45%, rgba(255,255,255,0.6) 0 1px, transparent 2px), radial-gradient(circle at 35% 12%, rgba(255,255,255,0.7) 0 1px, transparent 2px), radial-gradient(circle at 48% 65%, rgba(255,255,255,0.5) 0 0.5px, transparent 1px), radial-gradient(circle at 62% 25%, rgba(255,255,255,0.75) 0 1px, transparent 2px), radial-gradient(circle at 75% 55%, rgba(255,255,255,0.55) 0 0.5px, transparent 1px), radial-gradient(circle at 88% 35%, rgba(255,255,255,0.65) 0 1px, transparent 2px), radial-gradient(circle at 15% 75%, rgba(255,255,255,0.5) 0 0.5px, transparent 1px), radial-gradient(circle at 55% 85%, rgba(255,255,255,0.6) 0 1px, transparent 2px)",
+          pointerEvents: "none", opacity: 0.7,
+        }} />}
         {showFog && <FogLayer />}
         {showLightning && <Lightning />}
       </div>
