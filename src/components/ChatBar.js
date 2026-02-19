@@ -112,10 +112,58 @@ function StockCard({ ticker }) {
   );
 }
 
-/* ── TradingView Chart ── */
+/* ── Market session helpers ── */
+function getMarketSession() {
+  const now = new Date();
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const day = et.getDay();
+  const h = et.getHours();
+  const m = et.getMinutes();
+  const mins = h * 60 + m;
+  const isWeekday = day >= 1 && day <= 5;
+
+  if (!isWeekday) return { session: 'closed', label: 'Market Closed', next: 'Mon 9:30 AM', color: 'text-zinc-500' };
+  if (mins < 240) return { session: 'closed', label: 'Market Closed', next: '4:00 AM', color: 'text-zinc-500' };
+  if (mins < 570) return { session: 'premarket', label: 'Pre-Market', next: '9:30 AM', color: 'text-blue-400' };
+  if (mins < 960) return { session: 'open', label: 'Market Open', next: '4:00 PM', color: 'text-emerald-400' };
+  if (mins < 1200) return { session: 'afterhours', label: 'After Hours', next: 'Tomorrow 9:30 AM', color: 'text-orange-400' };
+  return { session: 'closed', label: 'Market Closed', next: 'Tomorrow 4:00 AM', color: 'text-zinc-500' };
+}
+
+function getCountdown() {
+  const now = new Date();
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const day = et.getDay();
+  const h = et.getHours();
+  const m = et.getMinutes();
+  const s = et.getSeconds();
+  const mins = h * 60 + m;
+  const isWeekday = day >= 1 && day <= 5;
+
+  let targetMins;
+  let label;
+  if (!isWeekday || mins >= 960) { label = 'to Open'; targetMins = null; }
+  else if (mins < 570) { label = 'to Open'; targetMins = 570; }
+  else if (mins < 960) { label = 'to Close'; targetMins = 960; }
+  else { label = 'to Open'; targetMins = null; }
+
+  if (targetMins == null) return { text: '', label: '' };
+
+  const diff = (targetMins * 60) - (mins * 60 + s);
+  if (diff <= 0) return { text: '00:00:00', label };
+  const hh = String(Math.floor(diff / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+  const ss = String(diff % 60).padStart(2, '0');
+  return { text: `${hh}:${mm}:${ss}`, label };
+}
+
+/* ── TradingView Chart with Live Price ── */
 function ChartCard({ ticker, interval, onTickerChange, onIntervalChange, height }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(ticker);
+  const [quote, setQuote] = useState(null);
+  const [countdown, setCountdown] = useState(getCountdown());
+  const [marketInfo, setMarketInfo] = useState(getMarketSession());
   const inputRef = useRef(null);
   const cryptoMap = { BTC: 'COINBASE:BTCUSD', ETH: 'COINBASE:ETHUSD', SOL: 'COINBASE:SOLUSD', XRP: 'COINBASE:XRPUSD', DOGE: 'COINBASE:DOGEUSD' };
   const tvSymbol = cryptoMap[ticker] || ticker;
@@ -123,35 +171,104 @@ function ChartCard({ ticker, interval, onTickerChange, onIntervalChange, height 
   useEffect(() => { setDraft(ticker); }, [ticker]);
   useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
 
+  /* Fetch live quote */
+  useEffect(() => {
+    let active = true;
+    const fetchQuote = () => {
+      fetch(`/api/stock?ticker=${ticker}`)
+        .then((r) => r.json())
+        .then((d) => { if (active && !d.error) setQuote(d); })
+        .catch(() => {});
+    };
+    fetchQuote();
+    const iv = setInterval(fetchQuote, 15000);
+    return () => { active = false; clearInterval(iv); };
+  }, [ticker]);
+
+  /* Countdown timer — tick every second */
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setCountdown(getCountdown());
+      setMarketInfo(getMarketSession());
+    }, 1000);
+    return () => clearInterval(iv);
+  }, []);
+
   const commit = () => {
     const val = draft.trim().toUpperCase().replace(/^\$/, '');
-    if (val && val !== ticker) onTickerChange(val);
+    if (val && val !== ticker) { onTickerChange(val); setQuote(null); }
     setEditing(false);
   };
 
+  const positive = (quote?.change || 0) >= 0;
+  const changeColor = positive ? 'text-emerald-400' : 'text-red-400';
+
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-white/10 bg-black/40" style={{ height: height || DEFAULT_PANEL_HEIGHT }}>
-      <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-        <BarChart3 className="h-3.5 w-3.5 text-emerald-400" />
-        {editing ? (
-          <input ref={inputRef} value={draft} onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }}
-            onBlur={commit}
-            className="w-20 bg-transparent text-sm font-semibold text-zinc-100 outline-none border-b border-emerald-400/50 font-mono uppercase" />
-        ) : (
-          <button type="button" onClick={() => setEditing(true)} className="text-sm font-semibold text-zinc-100 hover:text-emerald-300 transition font-mono" title="Click to change ticker">
-            ${ticker}
-          </button>
-        )}
-        <div className="ml-auto flex gap-1">
-          {INTERVAL_OPTIONS.map((iv) => (
-            <button key={iv} type="button" onClick={() => onIntervalChange(iv)}
-              className={`rounded px-1.5 py-0.5 text-[10px] font-mono transition ${interval === iv ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}>
-              {INTERVAL_LABELS[iv]}
-            </button>
-          ))}
+      {/* Header: ticker + price + change + market status + countdown */}
+      <div className="border-b border-white/10 px-3 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-3.5 w-3.5 text-emerald-400" />
+            {editing ? (
+              <input ref={inputRef} value={draft} onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }}
+                onBlur={commit}
+                className="w-20 bg-transparent text-sm font-bold text-zinc-100 outline-none border-b border-emerald-400/50 font-mono uppercase" />
+            ) : (
+              <button type="button" onClick={() => setEditing(true)} className="text-sm font-bold text-zinc-100 hover:text-emerald-300 transition font-mono" title="Click to change ticker">
+                ${ticker}
+              </button>
+            )}
+            {quote && (
+              <>
+                <span className="text-lg font-bold text-zinc-100 font-mono">{formatPrice(quote.price)}</span>
+                <span className={`text-xs font-semibold font-mono ${changeColor}`}>
+                  {quote.change != null ? `${quote.change >= 0 ? '+' : ''}${quote.change.toFixed(2)}` : ''}
+                </span>
+                <span className={`text-xs font-semibold font-mono ${changeColor}`}>
+                  ({quote.changePercent != null ? `${quote.changePercent >= 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%` : ''})
+                </span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {countdown.text && (
+              <span className="text-[11px] font-mono text-zinc-400">
+                <span className="text-zinc-100 font-semibold">{countdown.text}</span> {countdown.label}
+              </span>
+            )}
+            <span className={`text-[10px] font-semibold uppercase tracking-wider ${marketInfo.color}`}>
+              {marketInfo.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Row 2: pre/post market data + interval buttons */}
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-3 text-[10px]">
+            {quote && !quote.isCrypto && (
+              <>
+                <span className="text-zinc-500">O <span className="text-zinc-300 font-mono">{formatPrice(quote.open)}</span></span>
+                <span className="text-zinc-500">H <span className="text-zinc-300 font-mono">{formatPrice(quote.high)}</span></span>
+                <span className="text-zinc-500">L <span className="text-zinc-300 font-mono">{formatPrice(quote.low)}</span></span>
+                <span className="text-zinc-500">PrvCl <span className="text-zinc-300 font-mono">{formatPrice(quote.prevClose)}</span></span>
+                <span className="text-zinc-500">Vol <span className="text-zinc-300 font-mono">{formatNum(quote.volume)}</span></span>
+              </>
+            )}
+          </div>
+          <div className="flex gap-1">
+            {INTERVAL_OPTIONS.map((iv) => (
+              <button key={iv} type="button" onClick={() => onIntervalChange(iv)}
+                className={`rounded px-1.5 py-0.5 text-[10px] font-mono transition ${interval === iv ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}>
+                {INTERVAL_LABELS[iv]}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Chart iframe */}
       <div className="flex-1 min-h-0">
         <iframe
           key={`${tvSymbol}_${interval}`}
