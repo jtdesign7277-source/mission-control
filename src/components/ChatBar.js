@@ -13,6 +13,19 @@ const TICKER_PATTERN = /\$([A-Z]{1,5})\b|\b(AAPL|TSLA|NVDA|AMZN|GOOGL|GOOG|META|
 const SPORTS_KEYWORDS = /\b(NFL|NBA|NHL|MLB|NCAA|Super\s*Bowl|playoff|World\s*Series|Stanley\s*Cup|championship|ESPN|football|basketball|hockey|baseball|soccer|Premier\s*League|UFC|MMA|boxing|F1|Formula|tennis|golf|PGA|Olympics|March\s*Madness|sport|game\s*tonight|score)\b/gi;
 const FINANCE_KEYWORDS = /\b(fed\s*fund|federal\s*fund|interest\s*rate|treasury|yield|bond|10.year|2.year|inflation|CPI|GDP|unemployment)\b/gi;
 
+const TIMEFRAME_MAP = [
+  { pattern: /\b1\s*min(ute)?\b/i, interval: '1' },
+  { pattern: /\b3\s*min(ute)?\b/i, interval: '3' },
+  { pattern: /\b5\s*min(ute)?\b/i, interval: '5' },
+  { pattern: /\b15\s*min(ute)?\b/i, interval: '15' },
+  { pattern: /\b30\s*min(ute)?\b/i, interval: '30' },
+  { pattern: /\b1\s*h(our|r)?\b/i, interval: '60' },
+  { pattern: /\b4\s*h(our|r)?\b/i, interval: '240' },
+  { pattern: /\bdaily\b|\b1\s*d(ay)?\b/i, interval: 'D' },
+  { pattern: /\bweekly\b|\b1\s*w(eek)?\b/i, interval: 'W' },
+  { pattern: /\bmonthly\b|\b1\s*m(onth)\b/i, interval: 'M' },
+];
+
 function extractTickers(messages) {
   const tickers = new Set();
   for (const msg of messages) {
@@ -28,7 +41,17 @@ function extractTickers(messages) {
   return arr.length > 0 ? arr[arr.length - 1] : null;
 }
 
-function StockPanel({ ticker, onTickerChange }) {
+function extractTimeframe(text) {
+  for (const { pattern, interval } of TIMEFRAME_MAP) {
+    if (pattern.test(text)) return interval;
+  }
+  return null;
+}
+
+const INTERVAL_LABELS = { '1': '1m', '3': '3m', '5': '5m', '15': '15m', '30': '30m', '60': '1H', '240': '4H', 'D': '1D', 'W': '1W', 'M': '1M' };
+const INTERVAL_OPTIONS = ['1', '5', '15', '60', 'D', 'W'];
+
+function StockPanel({ ticker, interval, onTickerChange, onIntervalChange }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(ticker);
   const inputRef = useRef(null);
@@ -58,11 +81,19 @@ function StockPanel({ ticker, onTickerChange }) {
             ${ticker}
           </button>
         )}
+        <div className="ml-auto flex gap-1">
+          {INTERVAL_OPTIONS.map((iv) => (
+            <button key={iv} type="button" onClick={() => onIntervalChange(iv)}
+              className={`rounded px-1.5 py-0.5 text-[10px] font-mono transition ${interval === iv ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}>
+              {INTERVAL_LABELS[iv]}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="flex-1 min-h-0">
         <iframe
-          key={tvSymbol}
-          src={`https://s.tradingview.com/widgetembed/?hideideas=1&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en#{"symbol":"${tvSymbol}","frameElementId":"tv_${tvSymbol}","interval":"D","hide_top_toolbar":"1","hide_legend":"1","save_image":"0","calendar":"0","hide_volume":"1","support_host":"https://www.tradingview.com","theme":"dark","style":"1","timezone":"America/New_York","withdateranges":"0","studies":[],"backgroundColor":"rgba(0,0,0,0)"}`}
+          key={`${tvSymbol}_${interval}`}
+          src={`https://s.tradingview.com/widgetembed/?hideideas=1&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en#{"symbol":"${tvSymbol}","frameElementId":"tv_${tvSymbol}_${interval}","interval":"${interval}","hide_top_toolbar":"1","hide_legend":"1","save_image":"0","calendar":"0","hide_volume":"1","support_host":"https://www.tradingview.com","theme":"dark","style":"1","timezone":"America/New_York","withdateranges":"0","studies":[],"backgroundColor":"rgba(0,0,0,0)"}`}
           className="h-full w-full border-0"
           allowTransparency="true"
         />
@@ -162,6 +193,7 @@ export default function ChatBar() {
   const [showChart, setShowChart] = useState(false);
   const [showSports, setShowSports] = useState(false);
   const [manualTicker, setManualTicker] = useState(null);
+  const [chartInterval, setChartInterval] = useState('D');
   const scrollRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
@@ -180,6 +212,9 @@ export default function ChatBar() {
       const lastUser = userMessages[userMessages.length - 1]?.content || '';
       if (new RegExp(TICKER_PATTERN.source, 'gi').test(lastUser) || new RegExp(FINANCE_KEYWORDS.source, 'gi').test(lastUser)) {
         setShowChart(true);
+        setManualTicker(null); // let detection pick up new ticker
+        const tf = extractTimeframe(lastUser);
+        if (tf) setChartInterval(tf);
       }
       if (new RegExp(SPORTS_KEYWORDS.source, 'gi').test(lastUser)) {
         setShowSports(true);
@@ -330,7 +365,7 @@ export default function ChatBar() {
       {(showChart || showSports) && (
         <div className={`mt-2 grid gap-3 h-[35vh] ${panelCount === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {showChart && (
-            <StockPanel ticker={activeTicker || 'SPY'} onTickerChange={(t) => setManualTicker(t)} />
+            <StockPanel ticker={activeTicker || 'SPY'} interval={chartInterval} onTickerChange={(t) => setManualTicker(t)} onIntervalChange={(iv) => setChartInterval(iv)} />
           )}
           {showSports && (
             <SportsPanel />
