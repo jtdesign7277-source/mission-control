@@ -68,6 +68,7 @@ const DEFAULT_SECTIONS = [
 ];
 
 const LS_KEY = 'mc-braindump-sections';
+const DATE_RANGE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})(?:-(\d{2}))?$/;
 
 function loadSections() {
   if (typeof window === 'undefined') return DEFAULT_SECTIONS;
@@ -79,6 +80,22 @@ function loadSections() {
     }
   } catch {}
   return DEFAULT_SECTIONS;
+}
+
+function formatDateRange(dateRange) {
+  const match = DATE_RANGE_PATTERN.exec(String(dateRange || ''));
+  if (!match) return dateRange;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const startDay = Number(match[3]);
+  const endDay = match[4] ? Number(match[4]) : null;
+  const monthLabel = new Date(year, month, 1).toLocaleString('en-US', { month: 'short' });
+
+  if (endDay && endDay !== startDay) {
+    return `${monthLabel} ${startDay}-${endDay}, ${year}`;
+  }
+  return `${monthLabel} ${startDay}, ${year}`;
 }
 
 function CollapsibleSection({ title, items }) {
@@ -112,9 +129,55 @@ export default function BrainDump() {
   const [editMode, setEditMode] = useState(false);
   const [editSections, setEditSections] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [devUpdates, setDevUpdates] = useState([]);
+  const [devUpdatesLoading, setDevUpdatesLoading] = useState(true);
+  const [devUpdatesError, setDevUpdatesError] = useState('');
+  const [devUpdatesOpen, setDevUpdatesOpen] = useState(true);
+  const [expandedUpdates, setExpandedUpdates] = useState({});
 
   useEffect(() => {
     setSections(loadSections());
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function fetchDevUpdates() {
+      setDevUpdatesLoading(true);
+      setDevUpdatesError('');
+
+      try {
+        const response = await fetch('/api/braindump');
+        const payload = await response.json().catch(() => []);
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Failed to load dev updates');
+        }
+
+        const updates = Array.isArray(payload) ? payload : [];
+        if (!active) return;
+
+        setDevUpdates(updates);
+        const nextExpanded = {};
+        updates.forEach((update, index) => {
+          nextExpanded[update.date_range] = index === 0;
+        });
+        setExpandedUpdates(nextExpanded);
+      } catch (error) {
+        if (!active) return;
+        setDevUpdates([]);
+        setExpandedUpdates({});
+        setDevUpdatesError(error.message || 'Failed to load dev updates');
+      } finally {
+        if (active) {
+          setDevUpdatesLoading(false);
+        }
+      }
+    }
+
+    fetchDevUpdates();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const copyAll = useCallback(() => {
@@ -168,6 +231,10 @@ export default function BrainDump() {
     setEditSections((prev) => [...prev, { title: 'New Section', items: [''] }]);
   };
 
+  const toggleUpdateCard = (dateRange) => {
+    setExpandedUpdates((prev) => ({ ...prev, [dateRange]: !prev[dateRange] }));
+  };
+
   return (
     <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
       <div className="mb-4 flex items-center justify-between">
@@ -215,6 +282,77 @@ export default function BrainDump() {
             </>
           )}
         </div>
+      </div>
+
+      <div className="mb-3 rounded-xl border border-white/10 bg-black/30">
+        <button
+          type="button"
+          onClick={() => setDevUpdatesOpen((prev) => !prev)}
+          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-zinc-100 transition hover:bg-white/5 rounded-xl"
+        >
+          {devUpdatesOpen ? (
+            <ChevronDown className="h-4 w-4 text-zinc-400" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-zinc-400" />
+          )}
+          📋 Dev Updates
+        </button>
+
+        {devUpdatesOpen && (
+          <div className="space-y-2 px-4 pb-3">
+            {devUpdatesLoading && (
+              <div className="flex items-center gap-2 py-1 text-xs text-zinc-400">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-zinc-500 border-t-transparent" />
+                Loading updates...
+              </div>
+            )}
+
+            {!devUpdatesLoading && devUpdatesError && (
+              <p className="text-xs text-rose-300">{devUpdatesError}</p>
+            )}
+
+            {!devUpdatesLoading && !devUpdatesError && devUpdates.length === 0 && (
+              <p className="text-xs text-zinc-400">No updates yet</p>
+            )}
+
+            {!devUpdatesLoading &&
+              !devUpdatesError &&
+              devUpdates.map((update) => (
+                <div key={update.date_range} className="rounded-lg border border-white/10 bg-black/40">
+                  <button
+                    type="button"
+                    onClick={() => toggleUpdateCard(update.date_range)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-white/5 rounded-lg"
+                  >
+                    {expandedUpdates[update.date_range] ? (
+                      <ChevronDown className="h-4 w-4 text-zinc-400" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-zinc-400" />
+                    )}
+                    <span className="text-xs font-semibold text-cyan-400">
+                      {formatDateRange(update.date_range)}
+                    </span>
+                  </button>
+
+                  {expandedUpdates[update.date_range] && (
+                    <pre className="overflow-x-auto border-t border-white/10 px-3 py-2 text-xs font-mono leading-relaxed whitespace-pre-wrap">
+                      {(update.content || '').split('\n').map((line, lineIndex) => {
+                        const isHeader = /^#{1,6}\s+/.test(line);
+                        return (
+                          <span
+                            key={`${update.date_range}-${lineIndex}`}
+                            className={`block ${isHeader ? 'font-semibold text-cyan-300' : 'text-zinc-300'}`}
+                          >
+                            {line || ' '}
+                          </span>
+                        );
+                      })}
+                    </pre>
+                  )}
+                </div>
+              ))}
+          </div>
+        )}
       </div>
 
       {!editMode && (
