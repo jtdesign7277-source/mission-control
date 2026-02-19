@@ -186,7 +186,7 @@ function SportsCard({ sport }) {
   }, [activeSport]);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden max-h-[300px] flex flex-col">
+    <div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden flex flex-col" style={{ height: '100%' }}>
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
         <Trophy className="h-3.5 w-3.5 text-yellow-400" />
         <span className="text-sm font-semibold text-zinc-100">Live Sports</span>
@@ -312,7 +312,11 @@ function ArtifactPanel({ artifact, chartInterval, onTickerChange, onIntervalChan
   }
 
   if (artifact.type === 'scores') {
-    return <SportsCard sport={artifact.sport} />;
+    return (
+      <div className="h-full">
+        <SportsCard sport={artifact.sport} />
+      </div>
+    );
   }
 
   if (artifact.type === 'search') {
@@ -488,7 +492,7 @@ export default function ChatBar() {
 
         {/* RIGHT: Artifact panel */}
         {showArtifacts && expanded && (
-          <div className="w-[58%] overflow-y-auto max-h-[calc(40vh+60px)] pr-1 transition-all duration-300">
+          <div className="w-[58%] overflow-y-auto max-h-[calc(40vh+68px)] pr-1 transition-all duration-300">
             <ArtifactPanel
               artifact={activeArtifact}
               chartInterval={chartInterval}
