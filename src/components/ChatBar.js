@@ -28,14 +28,36 @@ function extractTickers(messages) {
   return arr.length > 0 ? arr[arr.length - 1] : null;
 }
 
-function StockPanel({ ticker }) {
+function StockPanel({ ticker, onTickerChange }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(ticker);
+  const inputRef = useRef(null);
   const cryptoMap = { BTC: 'COINBASE:BTCUSD', ETH: 'COINBASE:ETHUSD', SOL: 'COINBASE:SOLUSD', XRP: 'COINBASE:XRPUSD', DOGE: 'COINBASE:DOGEUSD' };
   const tvSymbol = cryptoMap[ticker] || ticker;
+
+  useEffect(() => { setDraft(ticker); }, [ticker]);
+  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
+
+  const commit = () => {
+    const val = draft.trim().toUpperCase().replace(/^\$/, '');
+    if (val && val !== ticker) onTickerChange(val);
+    setEditing(false);
+  };
+
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-black/40">
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
         <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-        <span className="text-sm font-semibold text-zinc-100">${ticker}</span>
+        {editing ? (
+          <input ref={inputRef} value={draft} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false); }}
+            onBlur={commit}
+            className="w-20 bg-transparent text-sm font-semibold text-zinc-100 outline-none border-b border-emerald-400/50 font-mono uppercase" />
+        ) : (
+          <button type="button" onClick={() => setEditing(true)} className="text-sm font-semibold text-zinc-100 hover:text-emerald-300 transition" title="Click to change ticker">
+            ${ticker}
+          </button>
+        )}
       </div>
       <div className="flex-1 min-h-0">
         <iframe
@@ -139,6 +161,7 @@ export default function ChatBar() {
   const [expanded, setExpanded] = useState(false);
   const [showChart, setShowChart] = useState(false);
   const [showSports, setShowSports] = useState(false);
+  const [manualTicker, setManualTicker] = useState(null);
   const scrollRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
@@ -147,7 +170,8 @@ export default function ChatBar() {
   }, []);
 
   const userMessages = useMemo(() => messages.filter((m) => m.role === 'user'), [messages]);
-  const activeTicker = useMemo(() => extractTickers(messages), [userMessages.length]);
+  const detectedTicker = useMemo(() => extractTickers(messages), [userMessages.length]);
+  const activeTicker = manualTicker || detectedTicker;
 
   // Auto-open panels when relevant content detected
   const prevUserCountRef = useRef(0);
@@ -306,7 +330,7 @@ export default function ChatBar() {
       {(showChart || showSports) && (
         <div className={`mt-2 grid gap-3 h-[35vh] ${panelCount === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {showChart && (
-            <StockPanel ticker={activeTicker || 'SPY'} />
+            <StockPanel ticker={activeTicker || 'SPY'} onTickerChange={(t) => setManualTicker(t)} />
           )}
           {showSports && (
             <SportsPanel />
