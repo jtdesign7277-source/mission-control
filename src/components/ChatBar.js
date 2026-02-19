@@ -1,74 +1,33 @@
 'use client';
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { Send, ChevronDown, ChevronUp, Loader2, Terminal, X, TrendingUp, Trophy, ExternalLink, BarChart3, DollarSign, ArrowUpRight, ArrowDownRight, Newspaper, Globe } from 'lucide-react';
+import { Send, ChevronDown, ChevronUp, Loader2, Terminal, X, TrendingUp, Trophy, ExternalLink, BarChart3, DollarSign, ArrowUpRight, ArrowDownRight, Newspaper, Globe, Search } from 'lucide-react';
 
 /* ── Constants ── */
 const STARTER_QUESTIONS = [
   { label: '📈 How is $TSLA performing today?', text: 'How is $TSLA performing today?' },
   { label: '📊 Show me 1HR chart of $AAPL', text: 'Show me 1 hour chart of $AAPL' },
   { label: '🏦 What\'s the Fed fund rate?', text: 'What\'s the current Federal Funds rate and what\'s the Fed\'s latest outlook?' },
-  { label: '🏆 Trending sports', text: 'What\'s trending in sports right now? NFL, NBA, NHL playoffs, any big games or trades happening?' },
-];
-
-const TICKER_PATTERN = /\$([A-Z]{1,5})\b|\b(AAPL|TSLA|NVDA|AMZN|GOOGL|GOOG|META|MSFT|AMD|COIN|NFLX|PYPL|SOFI|PLTR|SPY|QQQ|HIMS|DIS|BA|INTC|UBER|SHOP|SQ|RIVN|LCID|NIO|MARA|RIOT|BTC|ETH|SOL|XRP|DOGE)\b/gi;
-const SPORTS_KEYWORDS = /\b(NFL|NBA|NHL|MLB|NCAA|Super\s*Bowl|playoff|World\s*Series|Stanley\s*Cup|championship|ESPN|football|basketball|hockey|baseball|soccer|Premier\s*League|UFC|MMA|boxing|F1|Formula|tennis|golf|PGA|Olympics|March\s*Madness|sport|game\s*tonight|score)\b/gi;
-const FINANCE_KEYWORDS = /\b(fed\s*fund|federal\s*fund|interest\s*rate|treasury|yield|bond|10.year|2.year|inflation|CPI|GDP|unemployment)\b/gi;
-const URL_PATTERN = /https?:\/\/[^\s)>\]]+/gi;
-
-const TIMEFRAME_MAP = [
-  { pattern: /\b1\s*min(ute)?\b/i, interval: '1' },
-  { pattern: /\b3\s*min(ute)?\b/i, interval: '3' },
-  { pattern: /\b5\s*min(ute)?\b/i, interval: '5' },
-  { pattern: /\b15\s*min(ute)?\b/i, interval: '15' },
-  { pattern: /\b30\s*min(ute)?\b/i, interval: '30' },
-  { pattern: /\b1\s*h(our|r)?\b/i, interval: '60' },
-  { pattern: /\b4\s*h(our|r)?\b/i, interval: '240' },
-  { pattern: /\bdaily\b|\b1\s*d(ay)?\b/i, interval: 'D' },
-  { pattern: /\bweekly\b|\b1\s*w(eek)?\b/i, interval: 'W' },
-  { pattern: /\bmonthly\b|\b1\s*m(onth)\b/i, interval: 'M' },
+  { label: '🏆 NBA scores tonight', text: 'What are the NBA scores tonight?' },
 ];
 
 const INTERVAL_LABELS = { '1': '1m', '3': '3m', '5': '5m', '15': '15m', '30': '30m', '60': '1H', '240': '4H', 'D': '1D', 'W': '1W', 'M': '1M' };
 const INTERVAL_OPTIONS = ['1', '5', '15', '60', 'D', 'W'];
 
+/* ── Artifact parser ── */
+const ARTIFACT_REGEX = /<!--artifacts:(.*?)-->/s;
+
+function parseArtifacts(text) {
+  const match = text.match(ARTIFACT_REGEX);
+  if (!match) return null;
+  try { return JSON.parse(match[1]); } catch { return null; }
+}
+
+function stripArtifacts(text) {
+  return text.replace(ARTIFACT_REGEX, '').trimEnd();
+}
+
 /* ── Helpers ── */
-function extractTickers(messages) {
-  const tickers = [];
-  for (const msg of messages) {
-    const text = msg.content || '';
-    let match;
-    const regex = new RegExp(TICKER_PATTERN.source, 'gi');
-    while ((match = regex.exec(text)) !== null) {
-      const t = (match[1] || match[2]).toUpperCase();
-      if (!tickers.includes(t)) tickers.push(t);
-    }
-  }
-  return tickers;
-}
-
-function extractTimeframe(text) {
-  for (const { pattern, interval } of TIMEFRAME_MAP) {
-    if (pattern.test(text)) return interval;
-  }
-  return null;
-}
-
-function extractUrls(messages) {
-  const urls = [];
-  const seen = new Set();
-  for (const msg of messages) {
-    if (msg.role !== 'assistant') continue;
-    const text = msg.content || '';
-    const matches = text.match(URL_PATTERN) || [];
-    for (const url of matches) {
-      const clean = url.replace(/[.,;:!?)]+$/, '');
-      if (!seen.has(clean)) { seen.add(clean); urls.push(clean); }
-    }
-  }
-  return urls;
-}
-
 function formatNum(n) {
   if (n == null) return '—';
   if (Math.abs(n) >= 1e12) return (n / 1e12).toFixed(2) + 'T';
@@ -83,7 +42,12 @@ function formatPrice(n) {
   return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/* ── Artifact: Stock Info Card ── */
+
+/* ═══════════════════════════════════════════
+   ARTIFACT COMPONENTS
+   ═══════════════════════════════════════════ */
+
+/* ── Stock Info Card ── */
 function StockCard({ ticker }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -115,12 +79,10 @@ function StockCard({ ticker }) {
     <div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden">
       <div className="p-4">
         <div className="flex items-start justify-between mb-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-emerald-400" />
-              <span className="text-lg font-bold text-zinc-100 font-mono">{data.ticker}</span>
-              {data.isCrypto && <span className="text-[10px] uppercase tracking-wider text-yellow-400/70 border border-yellow-400/20 rounded px-1.5 py-0.5">Crypto</span>}
-            </div>
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-emerald-400" />
+            <span className="text-lg font-bold text-zinc-100 font-mono">{data.ticker}</span>
+            {data.isCrypto && <span className="text-[10px] uppercase tracking-wider text-yellow-400/70 border border-yellow-400/20 rounded px-1.5 py-0.5">Crypto</span>}
           </div>
           <div className={`flex items-center gap-1 rounded-lg border px-2 py-1 ${bgColor}`}>
             <Arrow className={`h-3.5 w-3.5 ${color}`} />
@@ -129,16 +91,9 @@ function StockCard({ ticker }) {
             </span>
           </div>
         </div>
-
         <div className="text-3xl font-bold text-zinc-100 font-mono mb-4">
           {formatPrice(data.price)}
-          {data.change != null && (
-            <span className={`text-sm ml-2 ${color}`}>
-              {data.change >= 0 ? '+' : ''}{formatPrice(data.change).replace('$', data.change >= 0 ? '+$' : '-$').replace('+-', '+').replace('--', '-')}
-            </span>
-          )}
         </div>
-
         {!data.isCrypto && (
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
             <div className="flex justify-between"><span className="text-zinc-500">Open</span><span className="text-zinc-300 font-mono">{formatPrice(data.open)}</span></div>
@@ -153,7 +108,7 @@ function StockCard({ ticker }) {
   );
 }
 
-/* ── Artifact: TradingView Chart ── */
+/* ── TradingView Chart ── */
 function ChartCard({ ticker, interval, onTickerChange, onIntervalChange }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(ticker);
@@ -205,10 +160,10 @@ function ChartCard({ ticker, interval, onTickerChange, onIntervalChange }) {
   );
 }
 
-/* ── Artifact: Sports Scoreboard ── */
-function SportsCard() {
+/* ── Sports Scoreboard ── */
+function SportsCard({ sport }) {
   const [scores, setScores] = useState([]);
-  const [activeSport, setActiveSport] = useState('nba');
+  const [activeSport, setActiveSport] = useState(sport || 'nba');
   const [loading, setLoading] = useState(true);
 
   const SPORTS = [
@@ -217,21 +172,16 @@ function SportsCard() {
     { id: 'nfl', label: '🏈 NFL' },
     { id: 'mlb', label: '⚾ MLB' },
   ];
-
   const sportPath = { nfl: 'football/nfl', nba: 'basketball/nba', nhl: 'hockey/nhl', mlb: 'baseball/mlb' };
 
   useEffect(() => {
     let cancelled = false;
-    const fetchScores = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${sportPath[activeSport]}/scoreboard`);
-        const data = await res.json();
-        if (!cancelled && data?.events) setScores(data.events.slice(0, 8));
-      } catch {}
-      if (!cancelled) setLoading(false);
-    };
-    fetchScores();
+    setLoading(true);
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/${sportPath[activeSport]}/scoreboard`)
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled && data?.events) setScores(data.events.slice(0, 8)); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [activeSport]);
 
@@ -242,10 +192,10 @@ function SportsCard() {
         <span className="text-sm font-semibold text-zinc-100">Live Sports</span>
       </div>
       <div className="flex gap-1 border-b border-white/10 px-2 py-1.5">
-        {SPORTS.map((sport) => (
-          <button key={sport.id} type="button" onClick={() => setActiveSport(sport.id)}
-            className={`rounded-md px-2 py-1 text-[11px] transition ${activeSport === sport.id ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
-            {sport.label}
+        {SPORTS.map((s) => (
+          <button key={s.id} type="button" onClick={() => setActiveSport(s.id)}
+            className={`rounded-md px-2 py-1 text-[11px] transition ${activeSport === s.id ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
+            {s.label}
           </button>
         ))}
       </div>
@@ -289,33 +239,33 @@ function SportsCard() {
   );
 }
 
-/* ── Artifact: Link Cards ── */
-function LinkCards({ urls }) {
-  if (!urls.length) return null;
+/* ── Search/Links Card (AI-curated) ── */
+function SearchCard({ title, links }) {
+  if (!links || !links.length) return null;
   return (
     <div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden">
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-        <Globe className="h-3.5 w-3.5 text-blue-400" />
-        <span className="text-sm font-semibold text-zinc-100">Links</span>
+        <Search className="h-3.5 w-3.5 text-purple-400" />
+        <span className="text-sm font-semibold text-zinc-100">{title || 'Related'}</span>
       </div>
       <div className="p-2 space-y-1">
-        {urls.slice(0, 8).map((url) => {
-          let label = url;
-          try { label = new URL(url).hostname.replace('www.', '') + new URL(url).pathname.slice(0, 40); } catch {}
-          return (
-            <a key={url} href={url} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-emerald-300 transition group">
-              <ExternalLink className="h-3 w-3 text-zinc-500 group-hover:text-emerald-400 shrink-0" />
-              <span className="truncate font-mono">{label}</span>
-            </a>
-          );
-        })}
+        {links.map((link, i) => (
+          <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-zinc-300 hover:bg-white/5 hover:text-emerald-300 transition group border border-transparent hover:border-white/10">
+            <span className="text-base shrink-0">{link.icon || '🔗'}</span>
+            <div className="min-w-0 flex-1">
+              <div className="font-medium truncate">{link.label}</div>
+              <div className="text-[10px] text-zinc-600 truncate font-mono">{(() => { try { return new URL(link.url).hostname; } catch { return ''; } })()}</div>
+            </div>
+            <ExternalLink className="h-3 w-3 text-zinc-600 group-hover:text-emerald-400 shrink-0" />
+          </a>
+        ))}
       </div>
     </div>
   );
 }
 
-/* ── Artifact: Quick Research Links ── */
+/* ── Stock Research Links ── */
 function ResearchLinks({ ticker }) {
   const links = [
     { label: 'Yahoo Finance', url: `https://finance.yahoo.com/quote/${ticker}`, icon: '📊' },
@@ -328,20 +278,48 @@ function ResearchLinks({ ticker }) {
   return (
     <div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden">
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-        <Newspaper className="h-3.5 w-3.5 text-purple-400" />
+        <Newspaper className="h-3.5 w-3.5 text-blue-400" />
         <span className="text-sm font-semibold text-zinc-100">Research ${ticker}</span>
       </div>
       <div className="p-2 grid grid-cols-2 gap-1">
         {links.map((link) => (
           <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-zinc-400 hover:bg-white/5 hover:text-zinc-200 transition">
-            <span>{link.icon}</span>
-            <span>{link.label}</span>
+            <span>{link.icon}</span><span>{link.label}</span>
           </a>
         ))}
       </div>
     </div>
   );
+}
+
+
+/* ═══════════════════════════════════════════
+   ARTIFACT PANEL — renders based on AI hints
+   ═══════════════════════════════════════════ */
+function ArtifactPanel({ artifact, chartInterval, onTickerChange, onIntervalChange }) {
+  if (!artifact || artifact.type === 'none') return null;
+
+  if (artifact.type === 'stock') {
+    const ticker = (artifact.ticker || 'SPY').toUpperCase();
+    return (
+      <div className="space-y-3">
+        <StockCard ticker={ticker} />
+        <ChartCard ticker={ticker} interval={artifact.interval || chartInterval} onTickerChange={onTickerChange} onIntervalChange={onIntervalChange} />
+        <ResearchLinks ticker={ticker} />
+      </div>
+    );
+  }
+
+  if (artifact.type === 'scores') {
+    return <SportsCard sport={artifact.sport} />;
+  }
+
+  if (artifact.type === 'search') {
+    return <SearchCard title={artifact.title} links={artifact.links} />;
+  }
+
+  return null;
 }
 
 
@@ -355,6 +333,7 @@ export default function ChatBar() {
   const [expanded, setExpanded] = useState(false);
   const [manualTicker, setManualTicker] = useState(null);
   const [chartInterval, setChartInterval] = useState('D');
+  const [activeArtifact, setActiveArtifact] = useState(null);
   const scrollRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
@@ -362,31 +341,25 @@ export default function ChatBar() {
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
-  /* Derived state */
-  const allTickers = useMemo(() => extractTickers(messages), [messages]);
-  const activeTicker = manualTicker || (allTickers.length > 0 ? allTickers[allTickers.length - 1] : null);
-  const urls = useMemo(() => extractUrls(messages), [messages]);
-  const hasSports = useMemo(() => messages.some((m) => new RegExp(SPORTS_KEYWORDS.source, 'gi').test(m.content || '')), [messages]);
-  const hasFinance = useMemo(() => activeTicker || messages.some((m) => new RegExp(FINANCE_KEYWORDS.source, 'gi').test(m.content || '')), [messages, activeTicker]);
-
-  /* Auto-detect timeframe from new user messages */
-  const prevMsgCount = useRef(0);
+  /* Parse artifacts from the latest assistant message whenever messages change */
   useEffect(() => {
-    if (messages.length > prevMsgCount.current) {
-      const newMsgs = messages.slice(prevMsgCount.current);
-      for (const msg of newMsgs) {
-        if (msg.role !== 'user') continue;
-        const tf = extractTimeframe(msg.content || '');
-        if (tf) setChartInterval(tf);
-        // Reset manual ticker when user mentions a new one
-        const regex = new RegExp(TICKER_PATTERN.source, 'gi');
-        if (regex.test(msg.content || '')) setManualTicker(null);
-      }
+    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+    if (!lastAssistant || !lastAssistant.content) return;
+    const parsed = parseArtifacts(lastAssistant.content);
+    if (parsed) {
+      setActiveArtifact(parsed);
+      if (parsed.type === 'stock' && parsed.ticker) setManualTicker(parsed.ticker.toUpperCase());
+      if (parsed.interval) setChartInterval(parsed.interval);
     }
-    prevMsgCount.current = messages.length;
   }, [messages]);
 
-  const showArtifacts = activeTicker || hasSports || urls.length > 0;
+  /* Display messages with artifacts stripped */
+  const displayMessages = useMemo(() =>
+    messages.map((m) => m.role === 'assistant' ? { ...m, content: stripArtifacts(m.content) } : m),
+    [messages]
+  );
+
+  const showArtifacts = activeArtifact && activeArtifact.type !== 'none';
 
   /* Send message */
   const sendMessage = async (overrideText) => {
@@ -405,7 +378,7 @@ export default function ChatBar() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: updated }),
+        body: JSON.stringify({ messages: updated.map((m) => ({ role: m.role, content: stripArtifacts(m.content) })) }),
       });
 
       if (!res.ok) {
@@ -458,30 +431,31 @@ export default function ChatBar() {
       </div>
 
       {/* ── Two-column layout: Chat + Artifacts ── */}
-      <div className={`flex gap-3 ${showArtifacts && expanded ? '' : ''}`}>
+      <div className="flex gap-3">
         {/* LEFT: Chat column */}
-        <div className={`flex flex-col ${showArtifacts && expanded ? 'w-[42%]' : 'w-full'} transition-all duration-300`}>
+        <div className={`flex flex-col transition-all duration-300 ${showArtifacts && expanded ? 'w-[42%]' : 'w-full'}`}>
           {/* Chat messages */}
-          {expanded && messages.length > 0 && (
+          {expanded && displayMessages.length > 0 && (
             <div className="rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm overflow-hidden mb-2">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
                 <div className="flex items-center gap-2 text-xs text-zinc-400">
                   <Terminal className="h-3.5 w-3.5 text-emerald-400" />
                   <span className="uppercase tracking-wider font-medium text-emerald-400">Fred</span>
                   <span className="text-zinc-600">·</span>
-                  <span>{messages.length} messages</span>
+                  <span>{displayMessages.length} messages</span>
                 </div>
-                <button type="button" onClick={() => { setMessages([]); setManualTicker(null); }} className="rounded p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition" title="Clear chat">
+                <button type="button" onClick={() => { setMessages([]); setManualTicker(null); setActiveArtifact(null); }}
+                  className="rounded p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition" title="Clear chat">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
               <div ref={scrollRef} className="h-[40vh] overflow-y-auto overscroll-contain px-4 py-3 space-y-3">
-                {messages.map((msg, i) => (
+                {displayMessages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                       msg.role === 'user' ? 'bg-emerald-500/20 border border-emerald-500/30 text-zinc-100' : 'bg-white/5 border border-white/10 text-zinc-300'
                     }`}>
-                      <pre className="whitespace-pre-wrap font-[inherit] m-0">{msg.content || (streaming && i === messages.length - 1 ? '...' : '')}</pre>
+                      <pre className="whitespace-pre-wrap font-[inherit] m-0">{msg.content || (streaming && i === displayMessages.length - 1 ? '...' : '')}</pre>
                     </div>
                   </div>
                 ))}
@@ -514,28 +488,13 @@ export default function ChatBar() {
 
         {/* RIGHT: Artifact panel */}
         {showArtifacts && expanded && (
-          <div className="w-[58%] space-y-3 overflow-y-auto max-h-[calc(40vh+60px)] pr-1 transition-all duration-300">
-            {/* Stock info card */}
-            {activeTicker && <StockCard ticker={activeTicker} />}
-
-            {/* TradingView chart */}
-            {activeTicker && (
-              <ChartCard
-                ticker={activeTicker}
-                interval={chartInterval}
-                onTickerChange={(t) => setManualTicker(t)}
-                onIntervalChange={(iv) => setChartInterval(iv)}
-              />
-            )}
-
-            {/* Research links for active ticker */}
-            {activeTicker && <ResearchLinks ticker={activeTicker} />}
-
-            {/* Sports scoreboard */}
-            {hasSports && <SportsCard />}
-
-            {/* Extracted links from Fred's responses */}
-            {urls.length > 0 && <LinkCards urls={urls} />}
+          <div className="w-[58%] overflow-y-auto max-h-[calc(40vh+60px)] pr-1 transition-all duration-300">
+            <ArtifactPanel
+              artifact={activeArtifact}
+              chartInterval={chartInterval}
+              onTickerChange={(t) => { setManualTicker(t); setActiveArtifact((a) => a ? { ...a, ticker: t } : a); }}
+              onIntervalChange={(iv) => setChartInterval(iv)}
+            />
           </div>
         )}
       </div>

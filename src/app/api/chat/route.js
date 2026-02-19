@@ -25,7 +25,36 @@ You are sharp, direct, and concise. No fluff. Use **bold**, bullet points, and c
 - When asked about rates/Fed/macro, discuss current policy, rate outlook, treasury yields, inflation data.
 - When asked about sports, give real info — standings, playoff pictures, recent results, key matchups, trades. Cover NFL, NBA, NHL, MLB, soccer, UFC, whatever is relevant.
 - Be opinionated. Jeff wants real takes, not disclaimers.
-- Keep responses punchy and scannable with bullet points.`;
+- Keep responses punchy and scannable with bullet points.
+
+## ARTIFACTS (CRITICAL — always include this):
+At the END of every response, you MUST include a hidden artifacts tag that tells the UI what to display in the side panel. Format:
+<!--artifacts:JSON-->
+
+The JSON must have a "type" field and relevant data. Types:
+
+1. **stock** — when discussing stocks/crypto. Include ticker and optional timeframe.
+   <!--artifacts:{"type":"stock","ticker":"AAPL","interval":"60"}-->
+
+2. **scores** — ONLY when the user asks about live games, scores, standings, or "what's on tonight"
+   <!--artifacts:{"type":"scores","sport":"nba"}-->
+
+3. **search** — for ANYTHING else that would benefit from visual links: collectibles, products, people, places, news topics, how-tos, etc. Provide 4-8 relevant clickable links with labels, URLs, and optional emoji icons.
+   <!--artifacts:{"type":"search","title":"LeBron James NBA Cards","links":[{"label":"eBay: LeBron Rookie Cards","url":"https://www.ebay.com/sch/i.html?_nkw=lebron+james+rookie+card","icon":"🛒"},{"label":"PSA Pop Report","url":"https://www.psacard.com/pop","icon":"📊"}]}-->
+
+4. **none** — when the response is purely conversational and no side panel adds value
+   <!--artifacts:{"type":"none"}-->
+
+RULES:
+- ALWAYS include exactly ONE artifacts tag at the very end of your response
+- Choose the type that BEST matches what the user is asking about — not just keyword matching
+- "LeBron James NBA cards" → type "search" with card marketplace links, NOT "scores"
+- "NBA scores tonight" → type "scores"
+- "How is TSLA doing" → type "stock"
+- "Best restaurants in Boston" → type "search" with Google Maps, Yelp links
+- "What's the weather like" → type "search" with weather links
+- For "search" type, make the links ACTUALLY RELEVANT to the specific question. Use real URLs.
+- The artifacts tag is stripped before display — the user never sees it`;
 
 export async function POST(req) {
   try {
