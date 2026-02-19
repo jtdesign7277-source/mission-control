@@ -35,6 +35,7 @@ import WorkflowBoard from '@/components/WorkflowBoard';
 // WeatherEffects removed — weather visuals contained in header only
 // Old WeatherWidget removed
 import CommunityHub from '@/components/CommunityHub';
+import RedditDashboard from '@/components/RedditDashboard';
 import ToolkitBoard from '@/components/ToolkitBoard';
 
 const VIEW_TABS = [
@@ -48,6 +49,7 @@ const VIEW_TABS = [
   { id: 'workflow', label: 'Workflow' },
   { id: 'braindump', label: 'Brain Dump' },
   { id: 'community', label: 'Community' },
+  { id: 'reddit', label: 'Reddit' },
   { id: 'toolkit', label: 'Toolkit' },
 ];
 
@@ -2124,6 +2126,7 @@ export default function MissionControlPage() {
         {activeView === 'workflow' && <WorkflowBoard />}
         {activeView === 'braindump' && <BrainDump />}
         {activeView === 'community' && <CommunityHub />}
+        {activeView === 'reddit' && <RedditDashboard />}
 
         {activeView === 'toolkit' && (
           <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
