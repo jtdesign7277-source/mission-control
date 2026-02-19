@@ -35,6 +35,7 @@ import WorkflowBoard from '@/components/WorkflowBoard';
 // WeatherEffects removed — weather visuals contained in header only
 // Old WeatherWidget removed
 import CommunityHub from '@/components/CommunityHub';
+import ToolkitBoard from '@/components/ToolkitBoard';
 
 const VIEW_TABS = [
   { id: 'split', label: 'Split' },
@@ -47,6 +48,7 @@ const VIEW_TABS = [
   { id: 'workflow', label: 'Workflow' },
   { id: 'braindump', label: 'Brain Dump' },
   { id: 'community', label: 'Community' },
+  { id: 'toolkit', label: 'Toolkit' },
 ];
 
 const SPLIT_PANELS = [
@@ -61,6 +63,7 @@ const SPLIT_PANELS = [
   { id: 'braindump', label: 'Brain Dump', icon: 'Brain' },
   { id: 'community', label: 'Community', icon: 'Rocket' },
   { id: 'chat', label: 'Chat', icon: 'Send' },
+  { id: 'toolkit', label: 'Toolkit', icon: 'Rocket' },
 ];
 
 const SPLIT_PANEL_ICONS = {
@@ -1349,6 +1352,8 @@ export default function MissionControlPage() {
             </div>
           </>
         );
+      case 'toolkit':
+        return <ToolkitBoard />;
       case 'kanban':
       default:
         return renderSplitPlaceholder(panelId);
@@ -2119,6 +2124,12 @@ export default function MissionControlPage() {
         {activeView === 'workflow' && <WorkflowBoard />}
         {activeView === 'braindump' && <BrainDump />}
         {activeView === 'community' && <CommunityHub />}
+
+        {activeView === 'toolkit' && (
+          <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
+            <ToolkitBoard />
+          </section>
+        )}
       </div>
 
       {/* Telegram removed — use Chat in split view */}
