@@ -13,6 +13,10 @@ const STARTER_QUESTIONS = [
 
 const INTERVAL_LABELS = { '1': '1m', '3': '3m', '5': '5m', '15': '15m', '30': '30m', '60': '1H', '240': '4H', 'D': '1D', 'W': '1W', 'M': '1M' };
 const INTERVAL_OPTIONS = ['1', '5', '15', '60', 'D', 'W'];
+const DEFAULT_PANEL_HEIGHT = 360;
+const MIN_PANEL_HEIGHT = 200;
+const MAX_PANEL_HEIGHT = 700;
+const LS_PANEL_HEIGHT_KEY = 'mc-panel-height';
 
 /* ── Artifact parser ── */
 const ARTIFACT_REGEX = /<!--artifacts:(.*?)-->/s;
@@ -109,7 +113,7 @@ function StockCard({ ticker }) {
 }
 
 /* ── TradingView Chart ── */
-function ChartCard({ ticker, interval, onTickerChange, onIntervalChange }) {
+function ChartCard({ ticker, interval, onTickerChange, onIntervalChange, height }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(ticker);
   const inputRef = useRef(null);
@@ -126,7 +130,7 @@ function ChartCard({ ticker, interval, onTickerChange, onIntervalChange }) {
   };
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-white/10 bg-black/40" style={{ height: '280px' }}>
+    <div className="flex flex-col overflow-hidden rounded-xl border border-white/10 bg-black/40" style={{ height: height || DEFAULT_PANEL_HEIGHT }}>
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
         <BarChart3 className="h-3.5 w-3.5 text-emerald-400" />
         {editing ? (
@@ -161,7 +165,7 @@ function ChartCard({ ticker, interval, onTickerChange, onIntervalChange }) {
 }
 
 /* ── Sports Scoreboard ── */
-function SportsCard({ sport }) {
+function SportsCard({ sport, height }) {
   const [scores, setScores] = useState([]);
   const [activeSport, setActiveSport] = useState(sport || 'nba');
   const [loading, setLoading] = useState(true);
@@ -186,7 +190,7 @@ function SportsCard({ sport }) {
   }, [activeSport]);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden flex flex-col" style={{ height: '100%' }}>
+    <div className="rounded-xl border border-white/10 bg-black/40 overflow-hidden flex flex-col" style={{ height: height || DEFAULT_PANEL_HEIGHT }}>
       <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
         <Trophy className="h-3.5 w-3.5 text-yellow-400" />
         <span className="text-sm font-semibold text-zinc-100">Live Sports</span>
@@ -341,6 +345,11 @@ export default function ChatBar() {
   const [showChart, setShowChart] = useState(false);
   const [showSports, setShowSports] = useState(false);
   const [panelTicker, setPanelTicker] = useState('SPY');
+  const [panelHeight, setPanelHeight] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_PANEL_HEIGHT;
+    try { const v = parseInt(localStorage.getItem(LS_PANEL_HEIGHT_KEY), 10); return (v >= MIN_PANEL_HEIGHT && v <= MAX_PANEL_HEIGHT) ? v : DEFAULT_PANEL_HEIGHT; } catch { return DEFAULT_PANEL_HEIGHT; }
+  });
+  const resizingRef = useRef(false);
   const scrollRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
@@ -526,23 +535,53 @@ export default function ChatBar() {
 
       {/* ── Panels: Chart left, Sports right ── */}
       {(showChart || showSports) && (
-        <div className="mt-2 flex gap-3">
-          {showChart && (
-            <div className={showSports ? 'w-1/2' : 'w-full'}>
-              <ChartCard
-                ticker={panelTicker}
-                interval={chartInterval}
-                onTickerChange={(t) => setPanelTicker(t)}
-                onIntervalChange={(iv) => setChartInterval(iv)}
-              />
-            </div>
-          )}
-          {showSports && (
-            <div className={showChart ? 'w-1/2' : 'w-full'}>
-              <SportsCard sport="nba" />
-            </div>
-          )}
-        </div>
+        <>
+          <div className="mt-2 flex gap-3">
+            {showChart && (
+              <div className={showSports ? 'w-1/2' : 'w-full'}>
+                <ChartCard
+                  ticker={panelTicker}
+                  interval={chartInterval}
+                  onTickerChange={(t) => setPanelTicker(t)}
+                  onIntervalChange={(iv) => setChartInterval(iv)}
+                  height={panelHeight}
+                />
+              </div>
+            )}
+            {showSports && (
+              <div className={showChart ? 'w-1/2' : 'w-full'}>
+                <SportsCard sport="nba" height={panelHeight} />
+              </div>
+            )}
+          </div>
+          {/* Resize handle */}
+          <div
+            className="mx-auto mt-1 flex h-4 w-16 cursor-row-resize items-center justify-center rounded-full hover:bg-white/10 transition group"
+            title="Drag to resize panels"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              resizingRef.current = true;
+              const startY = e.clientY;
+              const startH = panelHeight;
+              const onMove = (ev) => {
+                if (!resizingRef.current) return;
+                const delta = ev.clientY - startY;
+                const next = Math.min(MAX_PANEL_HEIGHT, Math.max(MIN_PANEL_HEIGHT, startH + delta));
+                setPanelHeight(next);
+              };
+              const onUp = () => {
+                resizingRef.current = false;
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                setPanelHeight((h) => { try { localStorage.setItem(LS_PANEL_HEIGHT_KEY, String(h)); } catch {} return h; });
+              };
+              document.addEventListener('mousemove', onMove);
+              document.addEventListener('mouseup', onUp);
+            }}
+          >
+            <div className="h-1 w-8 rounded-full bg-zinc-700 group-hover:bg-zinc-500 transition" />
+          </div>
+        </>
       )}
     </div>
   );
