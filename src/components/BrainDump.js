@@ -65,6 +65,49 @@ const DEFAULT_SECTIONS = [
       'Mobile App: ~/Desktop/Mobile_2nd_BRAIN/',
     ],
   },
+  {
+    title: '🛡️ Sentry (Error Monitoring)',
+    items: [
+      'Org: jeff-thompson-uy | Project: stratify',
+      'DSN: https://33b0952ac3a4edcd34f2741854287569@o4510744882642944.ingest.us.sentry.io/4510920320811008',
+      'SDK: @sentry/react initialized in src/main.jsx',
+      'Dashboard: 🛡️ Sentry tab in Mission Control',
+      'API Token: SENTRY_AUTH_TOKEN in Vercel env vars (Mission Control)',
+      'Permissions: event:admin, project:read, organization:read',
+      'Sentry URL: https://jeff-thompson-uy.sentry.io',
+    ],
+  },
+  {
+    title: '📊 Market Data (Twelve Data)',
+    items: [
+      'Plan: Pro $29/mo — 1,597 API/min + 1,500 WebSocket credits',
+      'API Key: VITE_TWELVE_DATA_API_KEY in .env.local',
+      'REST: https://api.twelvedata.com — time_series, indicators, movers',
+      'WebSocket: wss://ws.twelvedata.com/v1/quotes/price',
+      'LiveChart component: TradingView Lightweight Charts v5 + Twelve Data WS',
+      'Coverage: 75 exchanges — stocks, forex, crypto, ETFs, commodities',
+    ],
+  },
+  {
+    title: '🎬 TikTok Pipeline',
+    items: [
+      'Account: @ccc72622 (rename to Stratify pending)',
+      'Cron agents: Research → Script → Thumbnail (Discord #trending-research → #script-drafts → #thumbnail-lab)',
+      'Scripts stored in Supabase: tiktok_scripts table',
+      'Videos via Runway Gen4.5: tiktok_videos table',
+      'Mission Control TikTok tab: Scripts + Videos sub-tabs',
+      'Send to Phone: Telegram bot sends script text or video + TikTok upload link',
+    ],
+  },
+  {
+    title: '💳 Payments & Email',
+    items: [
+      'Stripe: Stratify Pro @ $9.99/mo (live)',
+      'Email: jeff@stratify-associates.com',
+      'Contact form: Resend API',
+      'Newsletter: Supabase newsletter_subscribers table',
+    ],
+  },
 ];
 
 const LS_KEY = 'mc-braindump-sections';
