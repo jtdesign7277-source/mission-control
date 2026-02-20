@@ -26,6 +26,7 @@ const QUICK_ACTIONS = [
   { label: 'View GitHub', href: 'https://github.com/jtdesign7277-source/stratify' },
   { label: 'Discord Server', href: 'https://discord.gg/6RPsREggYV' },
   { label: 'Open Reddit', href: 'https://www.reddit.com/user/Worry-Mountain' },
+  { label: 'Sentry Errors', href: 'https://jeff-thompson-uy.sentry.io/issues/?project=4510920320811008' },
 ];
 
 function isNil(value) {
