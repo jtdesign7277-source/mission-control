@@ -1388,7 +1388,34 @@ export default function MissionControlPage() {
       case 'toolkit':
         return <ToolkitBoard />;
       case 'kanban':
-        return renderSplitPlaceholder(panelId);
+        return (
+          <>
+            <div className="mb-3 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+              <h2 className="text-sm font-semibold">Kanban</h2>
+            </div>
+            <div className="grid gap-2">
+              {[
+                { id: 'queued', label: 'QUEUED', color: 'text-sky-400' },
+                { id: 'running', label: 'RUNNING', color: 'text-rose-400' },
+                { id: 'completed', label: 'COMPLETED', color: 'text-emerald-400' },
+                { id: 'failed', label: 'FAILED', color: 'text-rose-400' },
+              ].map((column) => (
+                <article key={column.id} className="rounded-lg border border-white/10 bg-black/20 p-2.5">
+                  <p className={`mb-2 text-[11px] font-medium uppercase tracking-[0.2em] ${column.color}`}>{column.label}</p>
+                  <div className="space-y-2">
+                    {(eventColumns[column.id] || []).slice(0, 3).map((event) => (
+                      <EventRow key={event.id} event={event} />
+                    ))}
+                    {(eventColumns[column.id] || []).length === 0 && (
+                      <p className="rounded-md border border-dashed border-white/10 px-2 py-2 text-[11px] text-zinc-500">No events</p>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
+        );
       default:
         return renderSplitPlaceholder(panelId);
     }
