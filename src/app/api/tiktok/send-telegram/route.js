@@ -12,7 +12,7 @@ export async function POST(request) {
 
     // If we have a video URL, send as video
     if (videoUrl) {
-      const vidCaption = `🎬 *TikTok Video Ready*\n\n${caption || 'No caption'}\n\n⬇️ Download and upload to TikTok`;
+      const vidCaption = `🎬 *TikTok Video Ready*\n\n${caption || 'No caption'}\n\n⬇️ Download → [Upload to TikTok](https://www.tiktok.com/upload)`;
 
       const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
         method: 'POST',
@@ -50,13 +50,16 @@ export async function POST(request) {
     const message = text || caption;
     if (!message) return NextResponse.json({ error: 'Nothing to send — no video or text provided' }, { status: 400 });
 
+    const fullMessage = message + '\n\n🔗 [Upload to TikTok](https://www.tiktok.com/upload)';
+
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: CHAT_ID,
-        text: message,
+        text: fullMessage,
         parse_mode: 'Markdown',
+        disable_web_page_preview: true,
       }),
     });
 
