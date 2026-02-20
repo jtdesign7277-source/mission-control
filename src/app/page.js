@@ -38,6 +38,7 @@ import CommunityHub from '@/components/CommunityHub';
 import RedditDashboard from '@/components/RedditDashboard';
 import ToolkitBoard from '@/components/ToolkitBoard';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
+import TikTokDashboard from '@/components/TikTokDashboard';
 
 const VIEW_TABS = [
   { id: 'analytics', label: 'Analytics' },
@@ -53,6 +54,7 @@ const VIEW_TABS = [
   { id: 'community', label: 'Community' },
   { id: 'reddit', label: 'Reddit' },
   { id: 'toolkit', label: 'Toolkit' },
+  { id: 'tiktok', label: 'TikTok' },
 ];
 
 const SPLIT_PANELS = [
@@ -2130,6 +2132,7 @@ export default function MissionControlPage() {
         {activeView === 'braindump' && <BrainDump />}
         {activeView === 'community' && <CommunityHub />}
         {activeView === 'reddit' && <RedditDashboard />}
+        {activeView === 'tiktok' && <TikTokDashboard />}
 
         {activeView === 'toolkit' && (
           <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
