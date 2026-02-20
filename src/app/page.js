@@ -1397,6 +1397,26 @@ export default function MissionControlPage() {
           </div>
         </section>
 
+        {/* Quick Actions — visible on split (home) view */}
+        {activeView === 'split' && (
+          <section className="flex flex-wrap items-center gap-2">
+            {[
+              { label: '⚡ Speed Chart', href: 'https://www.speedtest.net', color: 'border-cyan-400/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20' },
+              { label: '🏈 Live Sports', href: 'https://www.espn.com/watch/', color: 'border-orange-400/40 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20' },
+              { label: '🛡️ Sentry Errors', href: 'https://jeff-thompson-uy.sentry.io/issues/?project=4510920320811008', color: 'border-yellow-400/40 bg-yellow-500/10 text-yellow-300 hover:bg-yellow-500/20' },
+              { label: '🚀 Vercel', href: 'https://vercel.com', color: 'border-white/20 bg-white/5 text-zinc-300 hover:bg-white/10' },
+              { label: '💳 Stripe', href: 'https://dashboard.stripe.com', color: 'border-purple-400/40 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20' },
+              { label: '🐙 GitHub', href: 'https://github.com/jtdesign7277-source/stratify', color: 'border-white/20 bg-white/5 text-zinc-300 hover:bg-white/10' },
+              { label: '💬 Discord', href: 'https://discord.gg/6RPsREggYV', color: 'border-indigo-400/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20' },
+            ].map((a) => (
+              <a key={a.label} href={a.href} target="_blank" rel="noopener noreferrer"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${a.color}`}>
+                {a.label}
+              </a>
+            ))}
+          </section>
+        )}
+
         {activeView === 'split' && (
           <section className="space-y-4">
             <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
