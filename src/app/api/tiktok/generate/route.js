@@ -14,7 +14,7 @@ export async function POST(request) {
     const fullPrompt = style ? `${style} style: ${prompt}` : prompt;
 
     // Create Runway generation task
-    const runwayRes = await fetch(`${RUNWAY_BASE}/image_to_video`, {
+    const runwayRes = await fetch(`${RUNWAY_BASE}/text_to_video`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -22,10 +22,10 @@ export async function POST(request) {
         'X-Runway-Version': '2024-11-06',
       },
       body: JSON.stringify({
-        model: 'gen3a_turbo',
+        model: 'gen4.5',
         promptText: fullPrompt,
         duration: 5,
-        ratio: '768:1344',
+        ratio: '720:1280',
       }),
     });
 
