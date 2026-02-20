@@ -43,3 +43,24 @@ export async function PATCH(request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { id } = await request.json();
+    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+
+    const supabase = getSupabaseAdminClient();
+    const { error } = await supabase
+      .from('tiktok_videos')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true }, {
+      headers: { 'Cache-Control': 'no-store, max-age=0' },
+    });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

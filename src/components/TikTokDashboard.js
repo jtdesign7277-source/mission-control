@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, Copy, Check, Plus, X, Video, Loader2, Send } from 'lucide-react';
+import { Download, Copy, Check, Plus, X, Video, Loader2, Send, Trash2 } from 'lucide-react';
 
 const STATUS_CONFIG = {
   generating: { emoji: '🔄', label: 'Generating', bg: 'bg-yellow-500/15', border: 'border-yellow-400/40', text: 'text-yellow-300' },
@@ -92,6 +92,18 @@ export default function TikTokDashboard() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const deleteVideo = async (id) => {
+    if (!confirm('Delete this video?')) return;
+    try {
+      await fetch('/api/tiktok', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      setVideos(prev => prev.filter(v => v.id !== id));
+    } catch {}
+  };
+
   const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   return (
@@ -164,13 +176,13 @@ export default function TikTokDashboard() {
 
       {/* Video Grid */}
       {!loading && videos.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {videos.map(v => {
             const s = STATUS_CONFIG[v.status] || STATUS_CONFIG.generating;
             return (
               <div key={v.id} className="rounded-xl border border-white/10 bg-black/40 overflow-hidden hover:border-white/20 transition">
                 {/* Thumbnail / Preview */}
-                <div className="aspect-[9/16] max-h-48 bg-zinc-900 flex items-center justify-center relative overflow-hidden">
+                <div className="aspect-[9/16] max-h-[400px] bg-zinc-900 flex items-center justify-center relative overflow-hidden">
                   {v.video_url ? (
                     <video src={v.video_url} className="w-full h-full object-cover" muted loop playsInline
                       onMouseEnter={e => e.target.play()} onMouseLeave={e => { e.target.pause(); e.target.currentTime = 0; }}
@@ -214,6 +226,10 @@ export default function TikTokDashboard() {
                         <Send className="h-3 w-3" /> Posted
                       </button>
                     )}
+                    <button onClick={() => deleteVideo(v.id)}
+                      className="flex items-center gap-1 rounded-md border border-red-400/20 bg-red-500/5 px-2 py-1 text-[10px] text-red-400/60 hover:text-red-300 hover:bg-red-500/15 transition ml-auto">
+                      <Trash2 className="h-3 w-3" /> Delete
+                    </button>
                   </div>
                 </div>
               </div>
