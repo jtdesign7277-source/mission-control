@@ -1401,7 +1401,7 @@ export default function MissionControlPage() {
         {activeView === 'split' && (
           <section className="flex flex-wrap items-center gap-2">
             {[
-              { label: '⚡ Speed Chart', href: 'https://www.speedtest.net', color: 'border-cyan-400/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20' },
+              { label: '📈 SPY Chart', href: 'https://www.tradingview.com/chart/?symbol=SPY', color: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
               { label: '🏈 Live Sports', href: 'https://www.espn.com/watch/', color: 'border-orange-400/40 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20' },
               { label: '🛡️ Sentry Errors', href: 'https://jeff-thompson-uy.sentry.io/issues/?project=4510920320811008', color: 'border-yellow-400/40 bg-yellow-500/10 text-yellow-300 hover:bg-yellow-500/20' },
               { label: '🚀 Vercel', href: 'https://vercel.com', color: 'border-white/20 bg-white/5 text-zinc-300 hover:bg-white/10' },

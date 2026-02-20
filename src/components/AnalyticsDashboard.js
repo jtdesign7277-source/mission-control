@@ -20,13 +20,15 @@ import {
 const REFRESH_MS = 60000;
 
 const QUICK_ACTIONS = [
-  { label: 'Open Vercel Dashboard', href: 'https://vercel.com' },
-  { label: 'Open Stripe Dashboard', href: 'https://dashboard.stripe.com' },
-  { label: 'Open X Analytics', href: 'https://analytics.twitter.com' },
-  { label: 'View GitHub', href: 'https://github.com/jtdesign7277-source/stratify' },
-  { label: 'Discord Server', href: 'https://discord.gg/6RPsREggYV' },
-  { label: 'Open Reddit', href: 'https://www.reddit.com/user/Worry-Mountain' },
-  { label: 'Sentry Errors', href: 'https://jeff-thompson-uy.sentry.io/issues/?project=4510920320811008' },
+  { label: '📈 SPY Chart', href: 'https://www.tradingview.com/chart/?symbol=SPY' },
+  { label: '🏈 Live Sports', href: 'https://www.espn.com/watch/' },
+  { label: '🚀 Open Vercel Dashboard', href: 'https://vercel.com' },
+  { label: '💳 Open Stripe Dashboard', href: 'https://dashboard.stripe.com' },
+  { label: '📊 Open X Analytics', href: 'https://analytics.twitter.com' },
+  { label: '🐙 View GitHub', href: 'https://github.com/jtdesign7277-source/stratify' },
+  { label: '💬 Discord Server', href: 'https://discord.gg/6RPsREggYV' },
+  { label: '📝 Open Reddit', href: 'https://www.reddit.com/user/Worry-Mountain' },
+  { label: '🛡️ Sentry Errors', href: 'https://jeff-thompson-uy.sentry.io/issues/?project=4510920320811008' },
 ];
 
 function isNil(value) {
