@@ -5,6 +5,7 @@ import {
   Video, Plus, X, Loader2, Send, Trash2, Copy, Check,
   Flame, Edit3, ChevronDown, ChevronUp, FolderOpen,
   Clock, CheckCircle2, Film, Archive, Inbox, Eye,
+  Download, Wand2,
 } from 'lucide-react';
 
 const STATUSES = [
@@ -40,6 +41,14 @@ export default function TikTokDashboard() {
   const [copiedId, setCopiedId] = useState(null);
   const [sendingId, setSendingId] = useState(null);
 
+  // Video generation state
+  const [videos, setVideos] = useState([]);
+  const [showVideoGen, setShowVideoGen] = useState(false);
+  const [videoPrompt, setVideoPrompt] = useState('');
+  const [videoStyle, setVideoStyle] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState('scripts'); // 'scripts' | 'videos'
+
   // Form state
   const [formTopic, setFormTopic] = useState('');
   const [formHook, setFormHook] = useState('');
@@ -58,7 +67,84 @@ export default function TikTokDashboard() {
     } catch {} finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchScripts(); }, [fetchScripts]);
+  const fetchVideos = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tiktok', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.videos) setVideos(data.videos);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchScripts(); fetchVideos(); }, [fetchScripts, fetchVideos]);
+
+  // Poll generating videos
+  useEffect(() => {
+    const gen = videos.filter(v => v.status === 'generating');
+    if (gen.length === 0) return;
+    const interval = setInterval(async () => {
+      for (const v of gen) {
+        try {
+          const res = await fetch('/api/tiktok/poll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: v.id }),
+          });
+          const data = await res.json();
+          if (data.video && data.video.status !== 'generating') {
+            setVideos(prev => prev.map(p => p.id === data.video.id ? data.video : p));
+          }
+        } catch {}
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [videos]);
+
+  const handleGenerateVideo = async (e) => {
+    e?.preventDefault();
+    if (!videoPrompt.trim() || generating) return;
+    setGenerating(true);
+    try {
+      const res = await fetch('/api/tiktok/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: videoPrompt.trim(), style: videoStyle.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (data.video) {
+        setVideos(prev => [data.video, ...prev]);
+        setVideoPrompt(''); setVideoStyle(''); setShowVideoGen(false);
+      } else if (data.error) {
+        alert('❌ ' + data.error);
+      }
+    } catch { alert('❌ Failed to generate video'); }
+    finally { setGenerating(false); }
+  };
+
+  const deleteVideo = async (id) => {
+    if (!confirm('Delete this video?')) return;
+    try {
+      await fetch('/api/tiktok', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      setVideos(prev => prev.filter(v => v.id !== id));
+    } catch {}
+  };
+
+  const sendVideoToTelegram = async (v) => {
+    setSendingId(v.id);
+    try {
+      const res = await fetch('/api/tiktok/send-telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: v.video_url, caption: v.caption || v.prompt }),
+      });
+      const data = await res.json();
+      if (!data.ok) alert('❌ ' + (data.error || 'Failed'));
+    } catch { alert('❌ Failed to send'); }
+    finally { setSendingId(null); }
+  };
 
   const filtered = filter === 'all' ? scripts : scripts.filter(s => s.status === filter);
 
@@ -181,17 +267,167 @@ export default function TikTokDashboard() {
           <h2 className="text-lg font-semibold text-zinc-100" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
             TikTok Content
           </h2>
-          <span className="text-xs text-zinc-500">{scripts.length} scripts</span>
         </div>
+        <div className="flex items-center gap-2">
+          {activeTab === 'scripts' ? (
+            <button
+              onClick={() => { resetForm(); setShowForm(v => !v); }}
+              className="flex items-center gap-1.5 rounded-lg border border-pink-400/40 bg-pink-500/15 px-3 py-1.5 text-xs text-pink-300 hover:bg-pink-500/25 transition"
+            >
+              {showForm && !editingId ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              {showForm && !editingId ? 'Cancel' : 'New Script'}
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowVideoGen(v => !v)}
+              className="flex items-center gap-1.5 rounded-lg border border-purple-400/40 bg-purple-500/15 px-3 py-1.5 text-xs text-purple-300 hover:bg-purple-500/25 transition"
+            >
+              {showVideoGen ? <X className="h-3.5 w-3.5" /> : <Wand2 className="h-3.5 w-3.5" />}
+              {showVideoGen ? 'Cancel' : 'Generate Video'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Tabs: Scripts vs Videos */}
+      <div className="flex gap-1 border-b border-white/10 pb-1">
         <button
-          onClick={() => { resetForm(); setShowForm(v => !v); }}
-          className="flex items-center gap-1.5 rounded-lg border border-pink-400/40 bg-pink-500/15 px-3 py-1.5 text-xs text-pink-300 hover:bg-pink-500/25 transition"
+          onClick={() => setActiveTab('scripts')}
+          className={`px-4 py-2 text-sm font-medium transition rounded-t-lg ${
+            activeTab === 'scripts'
+              ? 'text-pink-300 bg-pink-500/10 border border-pink-400/30 border-b-transparent -mb-[1px]'
+              : 'text-zinc-500 hover:text-zinc-300'
+          }`}
         >
-          {showForm && !editingId ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-          {showForm && !editingId ? 'Cancel' : 'New Script'}
+          📝 Scripts <span className="text-[10px] ml-1 opacity-60">{scripts.length}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('videos')}
+          className={`px-4 py-2 text-sm font-medium transition rounded-t-lg ${
+            activeTab === 'videos'
+              ? 'text-purple-300 bg-purple-500/10 border border-purple-400/30 border-b-transparent -mb-[1px]'
+              : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          🎬 Videos <span className="text-[10px] ml-1 opacity-60">{videos.length}</span>
         </button>
       </div>
 
+      {/* ========== VIDEOS TAB ========== */}
+      {activeTab === 'videos' && (
+        <>
+          {/* Video Generation Form */}
+          {showVideoGen && (
+            <form onSubmit={handleGenerateVideo} className="rounded-xl border border-purple-400/20 bg-purple-500/5 p-4 space-y-3">
+              <span className="text-sm font-medium text-purple-300">✨ Generate Video (Runway Gen4.5)</span>
+              <textarea
+                value={videoPrompt}
+                onChange={e => setVideoPrompt(e.target.value)}
+                placeholder="Describe your video... (e.g. A cinematic drone shot over a neon-lit city at night)"
+                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-purple-400/40 focus:outline-none resize-none"
+                rows={3}
+                style={{ fontFamily: 'JetBrains Mono, monospace' }}
+              />
+              <div className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-500 mb-1 block">Style (optional)</label>
+                  <input
+                    value={videoStyle}
+                    onChange={e => setVideoStyle(e.target.value)}
+                    placeholder="cinematic, anime, vlog..."
+                    className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 focus:border-purple-400/40 focus:outline-none"
+                    style={{ fontFamily: 'JetBrains Mono, monospace' }}
+                  />
+                </div>
+                <button type="submit" disabled={generating || !videoPrompt.trim()}
+                  className="flex items-center gap-1.5 rounded-lg bg-purple-500/80 px-4 py-1.5 text-sm text-white hover:bg-purple-500 disabled:opacity-40 transition">
+                  {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                  {generating ? 'Generating...' : 'Generate'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Videos Grid */}
+          {videos.length === 0 && !loading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-zinc-500">
+              <Film className="h-10 w-10 mb-3 opacity-30" />
+              <p className="text-sm">No videos yet</p>
+              <p className="text-xs mt-1 text-zinc-600">Click &quot;Generate Video&quot; to create one with Runway AI</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {videos.map(v => {
+                const isGen = v.status === 'generating';
+                const isFailed = v.status === 'failed';
+                return (
+                  <div key={v.id} className="rounded-xl border border-white/10 bg-black/40 overflow-hidden hover:border-white/20 transition">
+                    {/* Preview */}
+                    <div className="aspect-[9/16] max-h-[400px] bg-zinc-900 flex items-center justify-center relative overflow-hidden">
+                      {v.video_url ? (
+                        <video src={v.video_url} className="w-full h-full object-cover" muted loop playsInline
+                          onMouseEnter={e => e.target.play()} onMouseLeave={e => { e.target.pause(); e.target.currentTime = 0; }}
+                        />
+                      ) : isGen ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                          <span className="text-xs text-zinc-500">Generating...</span>
+                        </div>
+                      ) : isFailed ? (
+                        <span className="text-xs text-red-400">❌ Generation failed</span>
+                      ) : (
+                        <Video className="h-8 w-8 text-zinc-700" />
+                      )}
+                      {/* Status badge */}
+                      <div className={`absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                        isGen ? 'bg-yellow-500/15 border-yellow-400/30 text-yellow-300' :
+                        isFailed ? 'bg-red-500/15 border-red-400/30 text-red-300' :
+                        v.status === 'posted' ? 'bg-purple-500/15 border-purple-400/30 text-purple-300' :
+                        'bg-emerald-500/15 border-emerald-400/30 text-emerald-300'
+                      }`}>
+                        {v.status}
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="p-3 space-y-2">
+                      <p className="text-xs text-zinc-300 line-clamp-2" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                        {v.caption || v.prompt}
+                      </p>
+                      {v.style && <span className="inline-block text-[10px] text-purple-400/70 bg-purple-500/10 rounded px-1.5 py-0.5">{v.style}</span>}
+                      <p className="text-[10px] text-zinc-600">{fmtDate(v.created_at)}</p>
+
+                      {/* Actions */}
+                      <div className="flex gap-1.5 pt-1 flex-wrap">
+                        {v.video_url && (
+                          <a href={v.video_url} download target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-zinc-400 hover:text-zinc-200 hover:bg-white/10 transition">
+                            <Download className="h-3 w-3" /> Download
+                          </a>
+                        )}
+                        {v.video_url && (
+                          <button onClick={() => sendVideoToTelegram(v)} disabled={sendingId === v.id}
+                            className="flex items-center gap-1 rounded-md border border-blue-400/30 bg-blue-500/10 px-2 py-1 text-[10px] text-blue-400 hover:bg-blue-500/20 disabled:opacity-40 transition">
+                            {sendingId === v.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                            📱 Send to Phone
+                          </button>
+                        )}
+                        <button onClick={() => deleteVideo(v.id)}
+                          className="flex items-center gap-1 rounded-md border border-red-400/20 bg-red-500/5 px-2 py-1 text-[10px] text-red-400/60 hover:text-red-300 hover:bg-red-500/15 transition ml-auto">
+                          <Trash2 className="h-3 w-3" /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ========== SCRIPTS TAB ========== */}
+      {activeTab === 'scripts' && <>
       {/* Status Filter Tabs */}
       <div className="flex gap-1 overflow-x-auto pb-1">
         {STATUSES.map(s => {
@@ -454,6 +690,7 @@ export default function TikTokDashboard() {
           })}
         </div>
       )}
+      </>}
     </section>
   );
 }
