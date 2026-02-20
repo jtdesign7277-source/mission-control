@@ -39,6 +39,7 @@ import RedditDashboard from '@/components/RedditDashboard';
 import ToolkitBoard from '@/components/ToolkitBoard';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import TikTokDashboard from '@/components/TikTokDashboard';
+import SkillsDashboard from '@/components/SkillsDashboard';
 
 const VIEW_TABS = [
   { id: 'analytics', label: 'Analytics' },
@@ -55,6 +56,7 @@ const VIEW_TABS = [
   { id: 'reddit', label: 'Reddit' },
   { id: 'toolkit', label: 'Toolkit' },
   { id: 'tiktok', label: 'TikTok' },
+  { id: 'skills', label: '🧠 Skills' },
 ];
 
 const SPLIT_PANELS = [
@@ -2133,6 +2135,7 @@ export default function MissionControlPage() {
         {activeView === 'community' && <CommunityHub />}
         {activeView === 'reddit' && <RedditDashboard />}
         {activeView === 'tiktok' && <TikTokDashboard />}
+        {activeView === 'skills' && <SkillsDashboard />}
 
         {activeView === 'toolkit' && (
           <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
