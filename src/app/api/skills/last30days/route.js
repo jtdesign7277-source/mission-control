@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // 5 min timeout for long research
+export const maxDuration = 60;
 
-const OPENCLAW_BASE = process.env.OPENCLAW_GATEWAY_URL || 'http://localhost:4152';
-const OPENCLAW_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || '';
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
 export async function POST(request) {
   try {
@@ -13,42 +12,66 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing topic' }, { status: 400 });
     }
 
-    // Send to OpenClaw as a spawned sub-agent task
-    const res = await fetch(`${OPENCLAW_BASE}/api/sessions/spawn`, {
+    if (!ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: 'ANTHROPIC_API_KEY not configured' },
+        { status: 500 }
+      );
+    }
+
+    const systemPrompt = `You are a research agent. When given a topic, provide a comprehensive "last 30 days" analysis covering:
+
+1. **Reddit** — Top discussions, upvoted posts, community sentiment
+2. **X/Twitter** — Trending takes, viral posts, key voices
+3. **YouTube** — Popular recent videos, creators covering this
+4. **Web/News** — Recent articles, developments, announcements
+
+Format your response clearly with sections. Include:
+- Key findings and trends
+- Notable quotes or posts (paraphrased)
+- Sentiment summary (bullish/bearish/mixed/excited/skeptical)
+- Actionable insights or opportunities
+
+Be specific with names, numbers, and dates when possible. Write in a direct, no-fluff style. Focus on what's actually being discussed in the last 30 days, not general background info.`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(OPENCLAW_TOKEN ? { 'Authorization': `Bearer ${OPENCLAW_TOKEN}` } : {}),
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        task: `Run the last30days skill to research the topic: "${topic}". Use the skill at ~/.claude/skills/last30days. Search Reddit, X/Twitter, YouTube, and the web for what people are saying about this topic in the last 30 days. Return a comprehensive summary with key findings, top posts, trending discussions, and any useful prompts or insights.`,
-        label: `last30days: ${topic}`,
-        timeoutSeconds: 300,
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: `Research this topic across Reddit, X/Twitter, YouTube, and the web from the last 30 days: "${topic}"`,
+          },
+        ],
       }),
     });
 
     if (!res.ok) {
-      // Fallback: return instructions to run manually
-      return NextResponse.json({
-        topic,
-        output: `⚠️ Could not connect to OpenClaw gateway to run the skill automatically.\n\nTo run manually, open a terminal and run:\n\ncd ~/.claude/skills/last30days && python3 scripts/research.py "${topic}"\n\nOr ask Fred in chat: "Run last30days on ${topic}"`,
-        fallback: true,
-      }, {
-        headers: { 'Cache-Control': 'no-store, max-age=0' },
-      });
+      const err = await res.text();
+      console.error('Claude API error:', err);
+      return NextResponse.json(
+        { error: 'Claude API request failed' },
+        { status: 502 }
+      );
     }
 
     const data = await res.json();
+    const output = data.content?.[0]?.text || 'No response from Claude';
 
-    return NextResponse.json({
-      topic,
-      output: data.result || data.output || data.message || 'Research task spawned. Check back in a few minutes.',
-      sessionKey: data.sessionKey,
-      runId: data.runId,
-    }, {
-      headers: { 'Cache-Control': 'no-store, max-age=0' },
-    });
+    return NextResponse.json(
+      { topic, output },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    );
   } catch (err) {
+    console.error('Skills last30days error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
