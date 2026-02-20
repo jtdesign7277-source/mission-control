@@ -92,6 +92,27 @@ export default function TikTokDashboard() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const [sendingId, setSendingId] = useState(null);
+
+  const sendToPhone = async (video) => {
+    setSendingId(video.id);
+    try {
+      const res = await fetch('/api/tiktok/send-telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: video.video_url, caption: video.caption || video.prompt }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        alert('✅ Sent to Telegram!');
+      } else {
+        alert('❌ Failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('❌ Failed to send');
+    } finally { setSendingId(null); }
+  };
+
   const deleteVideo = async (id) => {
     if (!confirm('Delete this video?')) return;
     try {
@@ -214,6 +235,12 @@ export default function TikTokDashboard() {
                         className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-zinc-400 hover:text-zinc-200 hover:bg-white/10 transition">
                         <Download className="h-3 w-3" /> Download
                       </a>
+                    )}
+                    {v.video_url && (
+                      <button onClick={() => sendToPhone(v)} disabled={sendingId === v.id}
+                        className="flex items-center gap-1 rounded-md border border-blue-400/30 bg-blue-500/10 px-2 py-1 text-[10px] text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 transition">
+                        {sendingId === v.id ? <Loader2 className="h-3 w-3 animate-spin" /> : '📱'} {sendingId === v.id ? 'Sending...' : 'Send to Phone'}
+                      </button>
                     )}
                     <button onClick={() => copyCaption(v.id, v.caption || v.prompt)}
                       className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-zinc-400 hover:text-zinc-200 hover:bg-white/10 transition">
