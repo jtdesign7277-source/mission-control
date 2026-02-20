@@ -7,6 +7,7 @@ import {
   Check,
   CheckCircle2,
   Clock3,
+  Columns2,
   Copy,
   Eye,
   EyeOff,
@@ -43,55 +44,29 @@ import SkillsDashboard from '@/components/SkillsDashboard';
 import SentryDashboard from '@/components/SentryDashboard';
 
 const VIEW_TABS = [
-  { id: 'analytics', label: 'Analytics' },
-  { id: 'split', label: 'Split' },
-  { id: 'feed', label: 'Feed' },
-  { id: 'kanban', label: 'Kanban' },
-  { id: 'deployments', label: 'Deployments' },
-  { id: 'email', label: 'Email' },
-  { id: 'contacts', label: 'Contacts' },
-  { id: 'keys', label: 'Keys' },
-  { id: 'workflow', label: 'Workflow' },
-  { id: 'braindump', label: 'Brain Dump' },
-  { id: 'community', label: 'Community' },
-  { id: 'reddit', label: 'Reddit' },
-  { id: 'toolkit', label: 'Toolkit' },
-  { id: 'tiktok', label: 'TikTok' },
-  { id: 'skills', label: '🧠 Skills' },
-  { id: 'sentry', label: '🛡️ Sentry' },
+  { id: 'analytics', label: 'Analytics', icon: CheckCircle2 },
+  { id: 'feed', label: 'Feed', icon: BellRing },
+  { id: 'kanban', label: 'Kanban', icon: Check },
+  { id: 'deployments', label: 'Deployments', icon: Rocket },
+  { id: 'email', label: 'Email', icon: Mail },
+  { id: 'contacts', label: 'Contacts', icon: Shield },
+  { id: 'keys', label: 'Keys', icon: KeyRound },
+  { id: 'workflow', label: 'Workflow', icon: Server },
+  { id: 'braindump', label: 'Brain Dump', icon: Brain },
+  { id: 'community', label: 'Community', icon: Rocket },
+  { id: 'reddit', label: 'Reddit', icon: BellRing },
+  { id: 'toolkit', label: 'Toolkit', icon: Rocket },
+  { id: 'tiktok', label: 'TikTok', icon: Send },
+  { id: 'skills', label: 'Skills', icon: Brain },
+  { id: 'sentry', label: 'Sentry', icon: Shield },
+  { id: 'cronjobs', label: 'Cron Jobs', icon: Clock3 },
+  { id: 'chat', label: 'Chat', icon: Send },
 ];
 
-const SPLIT_PANELS = [
-  { id: 'feed', label: 'Activity Feed', icon: 'BellRing' },
-  { id: 'deployments', label: 'Deployments', icon: 'Rocket' },
-  { id: 'email', label: 'Email', icon: 'Mail' },
-  { id: 'cronjobs', label: 'Cron Jobs', icon: 'Clock3' },
-  { id: 'kanban', label: 'Kanban', icon: 'CheckCircle2' },
-  { id: 'contacts', label: 'Contacts', icon: 'Shield' },
-  { id: 'keys', label: 'Keys', icon: 'KeyRound' },
-  { id: 'workflow', label: 'Workflow', icon: 'Server' },
-  { id: 'braindump', label: 'Brain Dump', icon: 'Brain' },
-  { id: 'community', label: 'Community', icon: 'Rocket' },
-  { id: 'chat', label: 'Chat', icon: 'Send' },
-  { id: 'toolkit', label: 'Toolkit', icon: 'Rocket' },
-];
-
-const SPLIT_PANEL_ICONS = {
-  BellRing,
-  Rocket,
-  Mail,
-  Clock3,
-  CheckCircle2,
-  Shield,
-  KeyRound,
-  Server,
-  Brain,
-  Send,
-};
-
-const SPLIT_PANEL_BY_ID = Object.fromEntries(SPLIT_PANELS.map((panel) => [panel.id, panel]));
-const SPLIT_PANEL_ID_SET = new Set(SPLIT_PANELS.map((panel) => panel.id));
+const VIEW_TAB_BY_ID = Object.fromEntries(VIEW_TABS.map((tab) => [tab.id, tab]));
+const VIEW_TAB_ID_SET = new Set(VIEW_TABS.map((tab) => tab.id));
 const SPLIT_PANELS_STORAGE_KEY = 'mc-split-panels';
+const SPLIT_MODE_STORAGE_KEY = 'mc-split-mode';
 const MAX_SPLIT_PANELS = 5;
 
 const STATUS_COLORS = {
@@ -321,7 +296,8 @@ function LiveClock() {
 }
 
 export default function MissionControlPage() {
-  const [activeView, setActiveView] = useState('split');
+  const [activeView, setActiveView] = useState(VIEW_TABS[0].id);
+  const [splitMode, setSplitMode] = useState(false);
   const [splitPanels, setSplitPanels] = useState(['feed', 'deployments']);
   // telegramOpen removed
 
@@ -825,30 +801,59 @@ export default function MissionControlPage() {
 
   const toggleSplitPanel = useCallback((panelId) => {
     setSplitPanels((prev) => {
-      if (!SPLIT_PANEL_ID_SET.has(panelId)) return prev;
+      if (!VIEW_TAB_ID_SET.has(panelId)) return prev;
       if (prev.includes(panelId)) return prev.filter((id) => id !== panelId);
       if (prev.length >= MAX_SPLIT_PANELS) return [...prev.slice(1), panelId];
       return [...prev, panelId];
     });
   }, []);
 
+  const handleViewTabClick = useCallback((tabId) => {
+    if (!VIEW_TAB_ID_SET.has(tabId)) return;
+    if (splitMode) {
+      toggleSplitPanel(tabId);
+      return;
+    }
+    setActiveView(tabId);
+  }, [splitMode, toggleSplitPanel]);
+
+  const handleSplitModeToggle = useCallback((nextValue) => {
+    setSplitMode(nextValue);
+    if (!nextValue) return;
+
+    setSplitPanels((prev) => {
+      if (prev.length > 0) return prev;
+      if (VIEW_TAB_ID_SET.has(activeView)) return [activeView];
+      return [VIEW_TABS[0].id];
+    });
+  }, [activeView]);
+
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(SPLIT_PANELS_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return;
+      const rawPanels = localStorage.getItem(SPLIT_PANELS_STORAGE_KEY);
+      if (rawPanels) {
+        const parsedPanels = JSON.parse(rawPanels);
+        if (Array.isArray(parsedPanels)) {
+          const nextPanels = [];
+          parsedPanels.forEach((panelId) => {
+            if (!VIEW_TAB_ID_SET.has(panelId)) return;
+            if (nextPanels.includes(panelId)) return;
+            if (nextPanels.length >= MAX_SPLIT_PANELS) return;
+            nextPanels.push(panelId);
+          });
 
-      const nextPanels = [];
-      parsed.forEach((panelId) => {
-        if (!SPLIT_PANEL_ID_SET.has(panelId)) return;
-        if (nextPanels.includes(panelId)) return;
-        if (nextPanels.length >= MAX_SPLIT_PANELS) return;
-        nextPanels.push(panelId);
-      });
+          if (nextPanels.length > 0) {
+            setSplitPanels(nextPanels);
+          }
+        }
+      }
 
-      if (nextPanels.length > 0) {
-        setSplitPanels(nextPanels);
+      const rawSplitMode = localStorage.getItem(SPLIT_MODE_STORAGE_KEY);
+      if (rawSplitMode) {
+        const parsedSplitMode = JSON.parse(rawSplitMode);
+        if (typeof parsedSplitMode === 'boolean') {
+          setSplitMode(parsedSplitMode);
+        }
       }
     } catch {
       // ignore invalid local storage payloads
@@ -862,6 +867,14 @@ export default function MissionControlPage() {
       // ignore storage write failures
     }
   }, [splitPanels]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SPLIT_MODE_STORAGE_KEY, JSON.stringify(splitMode));
+    } catch {
+      // ignore storage write failures
+    }
+  }, [splitMode]);
 
   useEffect(() => {
     fetchWeather();
@@ -1121,8 +1134,8 @@ export default function MissionControlPage() {
   }, [splitPanels.length]);
 
   const renderSplitPlaceholder = (panelId) => {
-    const panel = SPLIT_PANEL_BY_ID[panelId];
-    const Icon = SPLIT_PANEL_ICONS[panel?.icon] || Server;
+    const panel = VIEW_TAB_BY_ID[panelId];
+    const Icon = panel?.icon || Server;
 
     return (
       <div className="flex h-full min-h-[220px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-black/20 px-4 py-6 text-center">
@@ -1138,9 +1151,11 @@ export default function MissionControlPage() {
   };
 
   const renderSplitPanel = (panelId) => {
-    if (!SPLIT_PANEL_ID_SET.has(panelId)) return null;
+    if (!VIEW_TAB_ID_SET.has(panelId)) return null;
 
     switch (panelId) {
+      case 'analytics':
+        return <AnalyticsDashboard />;
       case 'feed':
         return (
           <>
@@ -1198,6 +1213,14 @@ export default function MissionControlPage() {
         return <BrainDump />;
       case 'community':
         return <CommunityHub />;
+      case 'reddit':
+        return <RedditDashboard />;
+      case 'tiktok':
+        return <TikTokDashboard />;
+      case 'skills':
+        return <SkillsDashboard />;
+      case 'sentry':
+        return <SentryDashboard />;
       case 'chat':
         return <ChatBar />;
       case 'email':
@@ -1365,6 +1388,7 @@ export default function MissionControlPage() {
       case 'toolkit':
         return <ToolkitBoard />;
       case 'kanban':
+        return renderSplitPlaceholder(panelId);
       default:
         return renderSplitPlaceholder(panelId);
     }
@@ -1380,25 +1404,68 @@ export default function MissionControlPage() {
 
         <section className="rounded-2xl border border-white/10 bg-black/35 p-3">
           <div className="flex flex-wrap items-center gap-2">
-            {VIEW_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveView(tab.id)}
-                className={`rounded-lg px-3 py-2 text-sm transition ${
-                  activeView === tab.id
-                    ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/50'
-                    : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-100'
+            <label
+              htmlFor="split-mode-toggle"
+              className={`inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                splitMode
+                  ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
+                  : 'border-white/10 text-zinc-300 hover:bg-white/5'
+              }`}
+            >
+              <input
+                id="split-mode-toggle"
+                type="checkbox"
+                checked={splitMode}
+                onChange={(event) => handleSplitModeToggle(event.target.checked)}
+                className="sr-only"
+              />
+              <Columns2 className="h-4 w-4" />
+              <span>Split</span>
+              <span
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${
+                  splitMode ? 'bg-emerald-500/80' : 'bg-zinc-700/90'
                 }`}
               >
-                {tab.label}
-              </button>
-            ))}
+                <span
+                  className={`h-4 w-4 rounded-full bg-white transition ${
+                    splitMode ? 'translate-x-4' : 'translate-x-1'
+                  }`}
+                />
+              </span>
+            </label>
+
+            {VIEW_TABS.map((tab) => {
+              const Icon = tab.icon || Server;
+              const isSelected = splitMode ? splitPanels.includes(tab.id) : activeView === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => handleViewTabClick(tab.id)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition ${
+                    isSelected
+                      ? 'border-emerald-400/50 bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/40'
+                      : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{tab.label}</span>
+                  {splitMode && <Plus className="h-3.5 w-3.5 text-emerald-300/90" />}
+                </button>
+              );
+            })}
+
+            {splitMode && (
+              <span className="ml-auto rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200">
+                {splitPanels.length}/{MAX_SPLIT_PANELS}
+              </span>
+            )}
           </div>
         </section>
 
-        {/* Quick Actions — visible on split (home) view */}
-        {activeView === 'split' && (
+        {/* Quick Actions — visible in split mode */}
+        {splitMode && (
           <section className="flex flex-wrap items-center gap-2">
             {[
               { label: '📈 SPY Chart', href: 'https://www.tradingview.com/chart/?symbol=SPY', color: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
@@ -1417,40 +1484,12 @@ export default function MissionControlPage() {
           </section>
         )}
 
-        {activeView === 'split' && (
+        {splitMode && (
           <section className="space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                {SPLIT_PANELS.map((panel) => {
-                  const isSelected = splitPanels.includes(panel.id);
-                  const Icon = SPLIT_PANEL_ICONS[panel.icon] || Server;
-
-                  return (
-                    <button
-                      key={panel.id}
-                      type="button"
-                      onClick={() => toggleSplitPanel(panel.id)}
-                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition ${
-                        isSelected
-                          ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-300'
-                          : 'border-white/10 text-zinc-500 hover:bg-white/5 hover:text-zinc-300'
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      <span>{panel.label}</span>
-                    </button>
-                  );
-                })}
-                <span className="ml-auto rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-zinc-400">
-                  {splitPanels.length}/{MAX_SPLIT_PANELS}
-                </span>
-              </div>
-            </div>
-
             <div className={`grid h-[calc(100vh-220px)] gap-3 ${splitGridClasses}`}>
               {splitPanels.length === 0 && (
                 <article className="flex min-h-[260px] items-center justify-center rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-zinc-500">
-                  Select at least one panel above.
+                  Enable panels from the tabs above.
                 </article>
               )}
               {splitPanels.map((panelId) => (
@@ -1475,7 +1514,9 @@ export default function MissionControlPage() {
           </section>
         )}
 
-        {activeView === 'feed' && (
+        {!splitMode && (
+          <>
+            {activeView === 'feed' && (
           <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -2150,20 +2191,32 @@ export default function MissionControlPage() {
               )}
             </div>
           </section>
-        )}
-        {activeView === 'analytics' && <AnalyticsDashboard />}
-        {activeView === 'workflow' && <WorkflowBoard />}
-        {activeView === 'braindump' && <BrainDump />}
-        {activeView === 'community' && <CommunityHub />}
-        {activeView === 'reddit' && <RedditDashboard />}
-        {activeView === 'tiktok' && <TikTokDashboard />}
-        {activeView === 'skills' && <SkillsDashboard />}
-        {activeView === 'sentry' && <SentryDashboard />}
+            )}
+            {activeView === 'cronjobs' && (
+              <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                {renderSplitPanel('cronjobs')}
+              </section>
+            )}
+            {activeView === 'chat' && (
+              <section className="overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-0">
+                {renderSplitPanel('chat')}
+              </section>
+            )}
+            {activeView === 'analytics' && <AnalyticsDashboard />}
+            {activeView === 'workflow' && <WorkflowBoard />}
+            {activeView === 'braindump' && <BrainDump />}
+            {activeView === 'community' && <CommunityHub />}
+            {activeView === 'reddit' && <RedditDashboard />}
+            {activeView === 'tiktok' && <TikTokDashboard />}
+            {activeView === 'skills' && <SkillsDashboard />}
+            {activeView === 'sentry' && <SentryDashboard />}
 
-        {activeView === 'toolkit' && (
-          <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
-            <ToolkitBoard />
-          </section>
+            {activeView === 'toolkit' && (
+              <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                <ToolkitBoard />
+              </section>
+            )}
+          </>
         )}
       </div>
 
