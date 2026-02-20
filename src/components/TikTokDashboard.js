@@ -155,11 +155,14 @@ export default function TikTokDashboard() {
   const sendToTelegram = async (s) => {
     setSendingId(s.id);
     try {
-      const text = `📹 TikTok Script: ${s.topic}\n\n🎣 Hook: ${s.hook || 'N/A'}\n\n📝 Script:\n${s.script || 'No script yet'}\n\n🎬 B-Roll: ${s.broll_notes || 'N/A'}`;
+      const scriptText = `📹 *TikTok Script: ${s.topic}*\n\n🎣 *Hook:* ${s.hook || 'N/A'}\n\n📝 *Script:*\n${s.script || 'No script yet'}\n\n🎬 *B-Roll:* ${s.broll_notes || 'N/A'}\n\n🔥 Virality: ${VIRALITY[s.virality]?.label || '🔥🔥'}`;
+      const payload = s.video_url
+        ? { videoUrl: s.video_url, caption: s.topic }
+        : { text: scriptText };
       const res = await fetch('/api/tiktok/send-telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caption: text }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!data.ok) alert('❌ Failed: ' + (data.error || 'Unknown'));
@@ -411,7 +414,7 @@ export default function TikTokDashboard() {
                       <button onClick={() => sendToTelegram(s)} disabled={sendingId === s.id}
                         className="flex items-center gap-1 rounded-md border border-blue-400/30 bg-blue-500/10 px-2.5 py-1 text-[10px] text-blue-400 hover:bg-blue-500/20 disabled:opacity-40 transition">
                         {sendingId === s.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                        📱 Send to Phone
+                        📱 {s.video_url ? 'Send Video' : 'Send Script'}
                       </button>
 
                       {s.status === 'draft' && (
