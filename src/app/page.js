@@ -6,6 +6,7 @@ import {
   BellRing,
   Check,
   CheckCircle2,
+  ChartCandlestick,
   Clock3,
   Columns2,
   Copy,
@@ -26,6 +27,7 @@ import {
   Trash2,
   X,
   Brain,
+  Briefcase,
 } from 'lucide-react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -42,6 +44,8 @@ import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import TikTokDashboard from '@/components/TikTokDashboard';
 import SkillsDashboard from '@/components/SkillsDashboard';
 import SentryDashboard from '@/components/SentryDashboard';
+import StockChartPanel from '@/components/StockChartPanel';
+import OfficeDashboard from '@/components/OfficeDashboard';
 
 const VIEW_TABS = [
   { id: 'analytics', label: 'Analytics', icon: CheckCircle2 },
@@ -49,8 +53,9 @@ const VIEW_TABS = [
   { id: 'kanban', label: 'Kanban', icon: Check },
   { id: 'deployments', label: 'Deployments', icon: Rocket },
   { id: 'email', label: 'Email', icon: Mail },
-  { id: 'contacts', label: 'Contacts', icon: Shield },
   { id: 'keys', label: 'Keys', icon: KeyRound },
+  { id: 'chart', label: 'Chart', icon: ChartCandlestick },
+  { id: 'contacts', label: 'Contacts', icon: Shield },
   { id: 'workflow', label: 'Workflow', icon: Server },
   { id: 'braindump', label: 'Brain Dump', icon: Brain },
   { id: 'community', label: 'Community', icon: Rocket },
@@ -60,6 +65,7 @@ const VIEW_TABS = [
   { id: 'skills', label: 'Skills', icon: Brain },
   { id: 'sentry', label: 'Sentry', icon: Shield },
   { id: 'cronjobs', label: 'Cron Jobs', icon: Clock3 },
+  { id: 'office', label: 'Office', icon: Briefcase },
   { id: 'chat', label: 'Chat', icon: Send },
 ];
 
@@ -1221,6 +1227,8 @@ export default function MissionControlPage() {
         return <SkillsDashboard />;
       case 'sentry':
         return <SentryDashboard />;
+      case 'office':
+        return <OfficeDashboard />;
       case 'chat':
         return <ChatBar />;
       case 'email':
@@ -1319,6 +1327,8 @@ export default function MissionControlPage() {
             </div>
           </>
         );
+      case 'chart':
+        return <StockChartPanel compact />;
       case 'cronjobs':
         return (
           <>
@@ -2219,6 +2229,11 @@ export default function MissionControlPage() {
             </div>
           </section>
             )}
+            {activeView === 'chart' && (
+              <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                <StockChartPanel />
+              </section>
+            )}
             {activeView === 'cronjobs' && (
               <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
                 {renderSplitPanel('cronjobs')}
@@ -2237,6 +2252,7 @@ export default function MissionControlPage() {
             {activeView === 'tiktok' && <TikTokDashboard />}
             {activeView === 'skills' && <SkillsDashboard />}
             {activeView === 'sentry' && <SentryDashboard />}
+            {activeView === 'office' && <OfficeDashboard />}
 
             {activeView === 'toolkit' && (
               <section className="rounded-2xl border border-white/10 bg-black/30 p-4">

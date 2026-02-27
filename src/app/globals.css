@@ -32,15 +32,15 @@ body {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
-::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-}
-
+/* Terminal-pro polish */
 * {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1a2538; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2a3548; }
 
 /* Weather effects */
 @keyframes rainfall {
@@ -79,4 +79,122 @@ body {
 @keyframes sun-pulse {
   0%, 100% { opacity: 0.15; transform: scale(1); }
   50% { opacity: 0.25; transform: scale(1.05); }
+}
+
+/* Highcharts stock theme for Mission Control */
+.highcharts-dark-theme .highcharts-container {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.highcharts-dark-theme .highcharts-background {
+  fill: #09090b;
+}
+
+.highcharts-dark-theme .highcharts-grid-line {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-dasharray: 2 4;
+}
+
+.highcharts-dark-theme .highcharts-axis-line,
+.highcharts-dark-theme .highcharts-tick,
+.highcharts-dark-theme .highcharts-navigator-outline,
+.highcharts-dark-theme .highcharts-scrollbar-track,
+.highcharts-dark-theme .highcharts-scrollbar-thumb {
+  stroke: #3f3f46;
+}
+
+.highcharts-dark-theme .highcharts-label text,
+.highcharts-dark-theme .highcharts-axis-labels text,
+.highcharts-dark-theme .highcharts-range-label text,
+.highcharts-dark-theme .highcharts-navigator-xaxis text {
+  fill: #a1a1aa;
+  font-size: 11px;
+}
+
+.highcharts-dark-theme .highcharts-axis-title {
+  fill: #71717a;
+  font-size: 11px;
+  text-transform: lowercase;
+  letter-spacing: 0.08em;
+}
+
+.highcharts-dark-theme .highcharts-candlestick-series .highcharts-point {
+  fill: #ff6e6e;
+  stroke: #ff6e6e;
+}
+
+.highcharts-dark-theme .highcharts-candlestick-series .highcharts-point-up {
+  fill: #51af7b;
+  stroke: #51af7b;
+}
+
+.highcharts-dark-theme .highcharts-series-1 .highcharts-point {
+  fill: rgba(255, 110, 110, 0.35);
+  stroke: transparent;
+}
+
+.highcharts-dark-theme .highcharts-series-1 .highcharts-point.volume-up {
+  fill: rgba(81, 175, 123, 0.4);
+}
+
+.highcharts-dark-theme .highcharts-crosshair-custom {
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-dasharray: 4 3;
+}
+
+.highcharts-dark-theme .highcharts-crosshair-custom-label {
+  fill: #18181b;
+  stroke: #3f3f46;
+  stroke-width: 1;
+}
+
+.highcharts-dark-theme .highcharts-crosshair-custom-label text,
+.highcharts-dark-theme .highcharts-last-price-label text {
+  fill: #e4e4e7;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.highcharts-dark-theme .highcharts-last-price-label {
+  fill: #18181b;
+  stroke: #3f3f46;
+  stroke-width: 1;
+}
+
+.highcharts-dark-theme .highcharts-tooltip-box {
+  fill: rgba(9, 9, 11, 0.96);
+  stroke: #3f3f46;
+  stroke-width: 1;
+}
+
+.highcharts-dark-theme .highcharts-tooltip text {
+  fill: #f4f4f5;
+}
+
+.highcharts-dark-theme .highcharts-button-box {
+  fill: #111827;
+  stroke: #3f3f46;
+}
+
+.highcharts-dark-theme .highcharts-button text {
+  fill: #d4d4d8;
+  font-size: 11px;
+}
+
+.highcharts-dark-theme .highcharts-button-hover .highcharts-button-box,
+.highcharts-dark-theme .highcharts-button:hover .highcharts-button-box {
+  fill: #1f2937;
+}
+
+.highcharts-dark-theme .highcharts-button-pressed .highcharts-button-box {
+  fill: #14532d;
+  stroke: #16a34a;
+}
+
+.highcharts-dark-theme .highcharts-navigator-mask-inside {
+  fill: rgba(24, 24, 27, 0.2);
+}
+
+.highcharts-dark-theme .highcharts-navigator-mask-outside {
+  fill: rgba(9, 9, 11, 0.6);
 }
