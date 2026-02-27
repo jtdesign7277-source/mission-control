@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Archive,
   BellRing,
@@ -1475,7 +1475,7 @@ export default function MissionControlPage() {
               const Icon = tab.icon || Server;
               const isSelected = splitMode ? splitPanels.includes(tab.id) : activeView === tab.id;
 
-              return (
+              const tabButton = (
                 <button
                   key={tab.id}
                   type="button"
@@ -1490,6 +1490,21 @@ export default function MissionControlPage() {
                   <span>{tab.label}</span>
                   {splitMode && <Plus className="h-3.5 w-3.5 text-emerald-300/90" />}
                 </button>
+              );
+
+              if (tab.id !== 'cronjobs') return tabButton;
+
+              return (
+                <Fragment key={`${tab.id}-with-x-cron`}>
+                  {tabButton}
+                  <a
+                    href="/x-cron"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/35 bg-sky-500/10 px-3 py-2 text-sm text-sky-300 transition hover:bg-sky-500/20"
+                  >
+                    <Clock3 className="h-3.5 w-3.5" />
+                    <span>X Cron</span>
+                  </a>
+                </Fragment>
               );
             })}
 
