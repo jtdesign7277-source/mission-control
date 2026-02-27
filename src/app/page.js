@@ -1493,6 +1493,14 @@ export default function MissionControlPage() {
               );
             })}
 
+            <a
+              href="/xai-tokens"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/35 bg-sky-500/10 px-3 py-2 text-sm text-sky-300 transition hover:bg-sky-500/20"
+            >
+              <Clock3 className="h-3.5 w-3.5" />
+              <span>XAI Tokens</span>
+            </a>
+
             {splitMode && (
               <span className="ml-auto rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200">
                 {splitPanels.length}/{MAX_SPLIT_PANELS}
