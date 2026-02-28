@@ -89,7 +89,7 @@ function ContentEngineView() {
     setPreview(null);
     setPostResult(null);
     try {
-      const res = await fetch(`https://stratifymarket.com/api/x-post?type=${selectedType}`);
+      const res = await fetch(`/api/generate-content?type=${selectedType}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generation failed');
       setPreview(data);
@@ -104,7 +104,7 @@ function ContentEngineView() {
     if (!preview?.content) return;
     setPosting(true);
     try {
-      const res = await fetch(`https://stratifymarket.com/api/x-post?type=${selectedType}&post=true`);
+      const res = await fetch(`/api/generate-content?type=${selectedType}&post=true`);
       const data = await res.json();
       setPostResult(data);
       if (data.tweetCount > 0) {
