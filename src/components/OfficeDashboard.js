@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Briefcase, Send, Eye, RefreshCw, CheckCircle, XCircle,
   Zap, Clock, Sun, Moon, Target, Activity, Flame, BarChart2,
   Calendar, TrendingUp, MessageSquare, Sparkles, ChevronRight,
   ExternalLink, Twitter, Hash, ArrowRight, Play, Pause,
-  AlertTriangle, Radio
+  AlertTriangle, Radio, Loader2
 } from 'lucide-react';
 
 // ─── Content Types ─────────────────────────────────────────
@@ -21,16 +21,10 @@ const CONTENT_TYPES = [
   { id: 'weekend-watchlist',  label: 'Weekend Watchlist',  icon: Calendar,   time: 'Sat 10 AM', color: '#06b6d4' },
 ];
 
-// ─── Sub-tab Navigation ────────────────────────────────────
-const SUB_TABS = [
-  { id: 'engine', label: 'Content Engine', icon: Zap },
-  { id: 'chat',   label: 'Chat',           icon: MessageSquare },
-];
-
 // ─── Highlight $TICKER in text ─────────────────────────────
 function highlightTickers(text) {
   if (!text) return '';
-  const parts = text.split(/(\$[A-Z]{1,5})/g);
+  const parts = String(text).split(/(\$[A-Z]{1,5})/g);
   return parts.map((part, i) =>
     part.match(/^\$[A-Z]{1,5}$/)
       ? <span key={i} className="text-blue-400 font-mono font-medium">{part}</span>
@@ -73,284 +67,101 @@ function TweetPreview({ text, isThread, index }) {
   );
 }
 
-// ─── Content Engine Sub-tab ────────────────────────────────
-function ContentEngineView() {
-  const [selectedType, setSelectedType] = useState('technical-setup');
-  const [preview, setPreview] = useState(null);
-  const [generating, setGenerating] = useState(false);
-  const [posting, setPosting] = useState(false);
-  const [postResult, setPostResult] = useState(null);
-  const [recentPosts, setRecentPosts] = useState([]);
+// ─── Feed Card (Left Panel) ────────────────────────────────
+function FeedCard({ type, data, isSelected, onClick }) {
+  const config = CONTENT_TYPES.find(t => t.id === type);
+  if (!config) return null;
+  const Icon = config.icon;
 
-  const typeConfig = CONTENT_TYPES.find(t => t.id === selectedType);
-
-  const handleGenerate = useCallback(async () => {
-    setGenerating(true);
-    setPreview(null);
-    setPostResult(null);
-    try {
-      const res = await fetch(`https://stratifymarket.com/api/x-post?type=${selectedType}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Generation failed');
-      setPreview(data);
-    } catch (err) {
-      setPreview({ error: err.message });
-    } finally {
-      setGenerating(false);
-    }
-  }, [selectedType]);
-
-  const handlePost = useCallback(async () => {
-    if (!preview?.content) return;
-    setPosting(true);
-    try {
-      const res = await fetch(`https://stratifymarket.com/api/x-post?type=${selectedType}&post=true`);
-      const data = await res.json();
-      setPostResult(data);
-      if (data.tweetCount > 0) {
-        setRecentPosts(prev => [{
-          type: selectedType,
-          time: new Date().toLocaleTimeString(),
-          count: data.tweetCount,
-        }, ...prev].slice(0, 10));
-      }
-    } catch (err) {
-      setPostResult({ error: err.message });
-    } finally {
-      setPosting(false);
-    }
-  }, [preview, selectedType]);
-
-  // Get tweets array from preview content
   const getTweets = (content) => {
     if (!content) return [];
     if (Array.isArray(content)) return content;
     if (content.thread) return [content.tweet, ...content.thread];
     if (content.tweet) return [content.tweet];
-    return [JSON.stringify(content)];
+    return [];
   };
 
+  const tweets = data?.content ? getTweets(data.content) : [];
+  const firstTweet = tweets[0] || '';
+  const preview = typeof firstTweet === 'string'
+    ? firstTweet.slice(0, 120) + (firstTweet.length > 120 ? '...' : '')
+    : '';
+
+  const timeAgo = data?.generatedAt
+    ? getTimeAgo(new Date(data.generatedAt))
+    : null;
+
   return (
-    <div className="flex h-full">
-      {/* Left: Content Type Selector */}
-      <div className="w-56 border-r border-[#1a2538] flex flex-col bg-[#0a1628]/30">
-        <div className="px-4 py-3 border-b border-[#1a2538]">
-          <div className="flex items-center gap-2">
-            <Twitter size={14} strokeWidth={1.5} className="text-blue-400" />
-            <span className="text-gray-300 text-xs font-medium tracking-wide uppercase">@stratify_hq</span>
-          </div>
+    <button
+      onClick={onClick}
+      className={`w-full text-left p-3 rounded-lg border transition-all group ${
+        isSelected
+          ? 'bg-[#0f1d32] border-blue-500/30'
+          : 'bg-[#0a1628]/40 border-[#1a2538] hover:bg-[#0f1d32]/60 hover:border-[#2a3548]'
+      }`}
+    >
+      <div className="flex items-center gap-2.5 mb-1.5">
+        <div
+          className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: `${config.color}15` }}
+        >
+          <Icon size={12} strokeWidth={1.5} style={{ color: config.color }} />
         </div>
-
-        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {CONTENT_TYPES.map(type => {
-            const Icon = type.icon;
-            const isActive = selectedType === type.id;
-            return (
-              <button
-                key={type.id}
-                onClick={() => { setSelectedType(type.id); setPreview(null); setPostResult(null); }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all text-left group ${
-                  isActive
-                    ? 'bg-[#0f1d32] text-white'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-[#0f1d32]/50'
-                }`}
-              >
-                <Icon size={14} strokeWidth={1.5} style={isActive ? { color: type.color } : {}} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs">{type.label}</div>
-                </div>
-                <span className="text-gray-600 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
-                  {type.time}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Recent Activity */}
-        {recentPosts.length > 0 && (
-          <div className="border-t border-[#1a2538] p-3">
-            <div className="text-gray-500 text-[10px] uppercase tracking-wider mb-2">Recent</div>
-            {recentPosts.slice(0, 3).map((p, i) => (
-              <div key={i} className="flex items-center gap-2 text-[10px] text-gray-500 py-0.5">
-                <CheckCircle size={8} className="text-emerald-500" />
-                <span>{p.type}</span>
-                <span className="ml-auto">{p.time}</span>
-              </div>
-            ))}
-          </div>
+        <span className="text-white text-xs font-medium flex-1 truncate">{config.label}</span>
+        {data?.content ? (
+          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+            data.fromCache
+              ? 'bg-emerald-500/10 text-emerald-400'
+              : 'bg-blue-500/10 text-blue-400'
+          }`}>
+            {data.fromCache ? 'Cached' : 'Fresh'}
+          </span>
+        ) : (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-500/10 text-gray-500 font-medium">
+            Pending
+          </span>
         )}
-
-        {/* Cron Status */}
-        <div className="px-4 py-2.5 border-t border-[#1a2538]">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-emerald-400 text-[10px]">Cron active · 10 posts/day</span>
-          </div>
-        </div>
       </div>
-
-      {/* Right: Preview & Actions */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Action Bar */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[#1a2538]">
-          <div className="flex items-center gap-3">
-            {typeConfig && (
-              <>
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${typeConfig.color}15` }}>
-                  <typeConfig.icon size={14} strokeWidth={1.5} style={{ color: typeConfig.color }} />
-                </div>
-                <div>
-                  <div className="text-white text-sm font-medium">{typeConfig.label}</div>
-                  <div className="text-gray-500 text-[10px]">Generate → Preview → Post to X</div>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                generating
-                  ? 'bg-[#1a2538] text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20'
-              }`}
-            >
-              {generating ? (
-                <RefreshCw size={12} strokeWidth={1.5} className="animate-spin" />
-              ) : (
-                <Eye size={12} strokeWidth={1.5} />
-              )}
-              {generating ? 'Generating...' : 'Preview'}
-            </button>
-            <button
-              onClick={handlePost}
-              disabled={!preview?.content || posting}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                !preview?.content || posting
-                  ? 'bg-[#1a2538] text-gray-500 cursor-not-allowed'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20'
-              }`}
-            >
-              {posting ? (
-                <RefreshCw size={12} strokeWidth={1.5} className="animate-spin" />
-              ) : (
-                <Send size={12} strokeWidth={1.5} />
-              )}
-              {posting ? 'Posting...' : 'Post to X'}
-            </button>
-          </div>
-        </div>
-
-        {/* Content Preview */}
-        <div className="flex-1 overflow-y-auto p-5">
-          {!preview && !generating && (
-            <div className="flex flex-col items-center justify-center h-full text-gray-600">
-              <div className="w-12 h-12 rounded-2xl bg-[#0f1d32] flex items-center justify-center mb-3">
-                <Sparkles size={20} strokeWidth={1} className="text-gray-600" />
-              </div>
-              <p className="text-sm text-gray-400">Click Preview to generate content</p>
-              <p className="text-xs text-gray-600 mt-1">Powered by Claude AI for @stratify_hq</p>
-            </div>
-          )}
-
-          {generating && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
-                <RefreshCw size={18} strokeWidth={1.5} className="animate-spin text-blue-400" />
-              </div>
-              <p className="text-gray-400 text-sm">Generating {typeConfig?.label}...</p>
-            </div>
-          )}
-
-          {preview?.error && (
-            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-red-400">
-                <XCircle size={14} strokeWidth={1.5} />
-                <span className="text-sm font-medium">Failed</span>
-              </div>
-              <p className="text-red-400/70 text-xs mt-1">{preview.error}</p>
-            </div>
-          )}
-
-          {preview?.content && (
-            <div className="space-y-3 max-w-lg">
-              {/* Technical setup extra data */}
-              {!Array.isArray(preview.content) && preview.content.entry && (
-                <div className="bg-[#0a1628] border border-[#1a2538] rounded-xl p-4 mb-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Target size={14} strokeWidth={1.5} className="text-emerald-400" />
-                    <span className="text-white text-sm font-medium">Setup Details</span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-3">
-                    {[
-                      { label: 'Entry', value: `$${preview.content.entry}`, color: 'text-white' },
-                      { label: 'Stop', value: `$${preview.content.stop}`, color: 'text-red-400' },
-                      { label: 'Target', value: `$${preview.content.target}`, color: 'text-emerald-400' },
-                      { label: 'R:R', value: preview.content.rr_ratio, color: 'text-blue-400' },
-                    ].map(({ label, value, color }) => (
-                      <div key={label}>
-                        <div className="text-gray-500 text-[10px] uppercase tracking-wider">{label}</div>
-                        <div className={`${color} font-mono text-sm mt-0.5`}>{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                  {preview.content.chartUrl && (
-                    <a href={preview.content.chartUrl} target="_blank" rel="noopener noreferrer"
-                       className="flex items-center gap-1.5 text-blue-400 text-xs mt-3 hover:text-blue-300 transition-colors">
-                      <ExternalLink size={10} strokeWidth={1.5} />
-                      View on TradingView
-                    </a>
-                  )}
-                </div>
-              )}
-
-              {/* Tweet previews */}
-              {getTweets(preview.content).map((tweet, i) => (
-                <TweetPreview
-                  key={i}
-                  text={tweet}
-                  isThread={getTweets(preview.content).length > 1}
-                  index={i}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Post result */}
-          {postResult && (
-            <div className={`mt-4 p-4 rounded-xl border ${
-              postResult.error
-                ? 'bg-red-500/5 border-red-500/20'
-                : 'bg-emerald-500/5 border-emerald-500/20'
-            }`}>
-              <div className="flex items-center gap-2">
-                {postResult.error ? (
-                  <XCircle size={14} strokeWidth={1.5} className="text-red-400" />
-                ) : (
-                  <CheckCircle size={14} strokeWidth={1.5} className="text-emerald-400" />
-                )}
-                <span className={`text-sm font-medium ${postResult.error ? 'text-red-400' : 'text-emerald-400'}`}>
-                  {postResult.error ? 'Post Failed' : `Posted ${postResult.tweetCount || 0} tweet(s)`}
-                </span>
-              </div>
-              {postResult.error && <p className="text-red-400/60 text-xs mt-1">{postResult.error}</p>}
-            </div>
+      {preview ? (
+        <p className="text-gray-400 text-[11px] leading-relaxed line-clamp-2 ml-8">
+          {preview}
+        </p>
+      ) : (
+        <p className="text-gray-600 text-[11px] ml-8 italic">Click to generate</p>
+      )}
+      {timeAgo && (
+        <div className="flex items-center gap-1.5 mt-1.5 ml-8">
+          <Clock size={9} className="text-gray-600" />
+          <span className="text-gray-600 text-[9px]">{timeAgo}</span>
+          {tweets.length > 1 && (
+            <span className="text-gray-600 text-[9px]">· {tweets.length} tweets</span>
           )}
         </div>
-      </div>
-    </div>
+      )}
+    </button>
   );
 }
 
-// ─── Chat Sub-tab ──────────────────────────────────────────
+function getTimeAgo(date) {
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+// ─── Chat View ─────────────────────────────────────────────
 function ChatView() {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Welcome to the Stratify Office. I can help you manage content, review analytics, draft tweets, or brainstorm marketing strategies. What would you like to work on?' }
+    { role: 'assistant', content: "Hey! I'm your Stratify content assistant. I can help you draft tweets, brainstorm marketing strategies, analyze setups, or plan campaigns for @stratify_hq. What are you working on?" }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
@@ -367,7 +178,7 @@ function ChatView() {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-5-20250929',
           max_tokens: 1000,
           system: `You are Stratify's marketing and content assistant inside Mission Control. You help with:
 - Drafting tweets for @stratify_hq
@@ -375,6 +186,7 @@ function ChatView() {
 - Reviewing content performance
 - Planning social media campaigns
 - Writing copy for the platform
+- Analyzing technical setups and trade ideas
 Keep responses concise and actionable. Use trading/fintech language naturally.`,
           messages: messages.filter(m => m.role !== 'assistant' || messages.indexOf(m) > 0).concat([
             { role: 'user', content: userMsg }
@@ -394,16 +206,15 @@ Keep responses concise and actionable. Use trading/fintech language naturally.`,
 
   return (
     <div className="flex flex-col h-full">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[70%] rounded-xl px-4 py-3 ${
+            <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 ${
               msg.role === 'user'
                 ? 'bg-blue-600 text-white'
                 : 'bg-[#0a1628] border border-[#1a2538] text-gray-200'
             }`}>
-              <div className="text-sm leading-relaxed whitespace-pre-wrap">
+              <div className="text-xs leading-relaxed whitespace-pre-wrap">
                 {highlightTickers(msg.content)}
               </div>
             </div>
@@ -411,7 +222,7 @@ Keep responses concise and actionable. Use trading/fintech language naturally.`,
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-[#0a1628] border border-[#1a2538] rounded-xl px-4 py-3">
+            <div className="bg-[#0a1628] border border-[#1a2538] rounded-xl px-3.5 py-2.5">
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" style={{ animationDelay: '0.2s' }} />
@@ -420,28 +231,26 @@ Keep responses concise and actionable. Use trading/fintech language naturally.`,
             </div>
           </div>
         )}
+        <div ref={chatEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-[#1a2538] p-4">
-        <div className="flex items-center gap-3 bg-[#0a1628] border border-[#1a2538] rounded-xl px-4 py-2.5 focus-within:border-blue-500/50 transition-colors">
+      <div className="border-t border-[#1a2538] p-3">
+        <div className="flex items-center gap-2 bg-[#0a1628] border border-[#1a2538] rounded-lg px-3 py-2 focus-within:border-blue-500/50 transition-colors">
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-            placeholder="Draft a tweet, plan a campaign, brainstorm ideas..."
-            className="flex-1 bg-transparent text-white text-sm placeholder-gray-500 outline-none"
+            placeholder="Ask about strategies, draft tweets..."
+            className="flex-1 bg-transparent text-white text-xs placeholder-gray-500 outline-none"
           />
           <button
             onClick={sendMessage}
             disabled={!input.trim() || loading}
-            className={`p-1.5 rounded-lg transition-colors ${
-              input.trim() && !loading
-                ? 'text-blue-400 hover:bg-blue-500/10'
-                : 'text-gray-600'
+            className={`p-1 rounded-md transition-colors ${
+              input.trim() && !loading ? 'text-blue-400 hover:bg-blue-500/10' : 'text-gray-600'
             }`}
           >
-            <Send size={14} strokeWidth={1.5} />
+            <Send size={12} strokeWidth={1.5} />
           </button>
         </div>
       </div>
@@ -449,40 +258,335 @@ Keep responses concise and actionable. Use trading/fintech language naturally.`,
   );
 }
 
-// ─── Main Office Dashboard ─────────────────────────────────
+// ─── Main Office Dashboard (Split Screen) ──────────────────
 export default function OfficeDashboard() {
-  const [activeTab, setActiveTab] = useState('engine');
+  const [feedData, setFeedData] = useState({});
+  const [selectedType, setSelectedType] = useState(null);
+  const [generating, setGenerating] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [postResult, setPostResult] = useState(null);
+  const [rightTab, setRightTab] = useState('preview');
+  const [loadingFeed, setLoadingFeed] = useState(true);
+
+  // Get tweets array from content
+  const getTweets = (content) => {
+    if (!content) return [];
+    if (Array.isArray(content)) return content;
+    if (content.thread) return [content.tweet, ...content.thread];
+    if (content.tweet) return [content.tweet];
+    return [typeof content === 'string' ? content : JSON.stringify(content)];
+  };
+
+  // Load all cached content on mount
+  useEffect(() => {
+    async function loadFeed() {
+      setLoadingFeed(true);
+      const results = await Promise.allSettled(
+        CONTENT_TYPES.map(async (type) => {
+          const res = await fetch(`/api/generate-content?type=${type.id}`);
+          if (!res.ok) return { type: type.id, data: null };
+          const data = await res.json();
+          return { type: type.id, data };
+        })
+      );
+
+      const newFeed = {};
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value.data?.content) {
+          newFeed[result.value.type] = result.value.data;
+        }
+      });
+      setFeedData(newFeed);
+      setLoadingFeed(false);
+    }
+    loadFeed();
+
+    // Refresh every 5 minutes
+    const interval = setInterval(loadFeed, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Generate/refresh a specific type
+  const handleGenerate = useCallback(async (type, forceRefresh = false) => {
+    setGenerating(true);
+    setPostResult(null);
+    try {
+      const url = `/api/generate-content?type=${type}${forceRefresh ? '&refresh=true' : ''}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      setFeedData(prev => ({ ...prev, [type]: data }));
+      setSelectedType(type);
+      setRightTab('preview');
+    } catch (err) {
+      console.error('Generate error:', err);
+    } finally {
+      setGenerating(false);
+    }
+  }, []);
+
+  // Post to X
+  const handlePost = useCallback(async () => {
+    if (!selectedType || !feedData[selectedType]?.content) return;
+    setPosting(true);
+    try {
+      const res = await fetch(`https://stratifymarket.com/api/x-post?type=${selectedType}&post=true`);
+      const data = await res.json();
+      setPostResult(data);
+    } catch (err) {
+      setPostResult({ error: err.message });
+    } finally {
+      setPosting(false);
+    }
+  }, [selectedType, feedData]);
+
+  const selectedData = selectedType ? feedData[selectedType] : null;
+  const selectedConfig = CONTENT_TYPES.find(t => t.id === selectedType);
+  const tweets = selectedData?.content ? getTweets(selectedData.content) : [];
+
+  // Sort feed: items with content first (by generatedAt), then pending
+  const sortedTypes = [...CONTENT_TYPES].sort((a, b) => {
+    const aData = feedData[a.id];
+    const bData = feedData[b.id];
+    if (aData?.generatedAt && bData?.generatedAt) {
+      return new Date(bData.generatedAt) - new Date(aData.generatedAt);
+    }
+    if (aData?.generatedAt) return -1;
+    if (bData?.generatedAt) return 1;
+    return 0;
+  });
 
   return (
     <div className="flex flex-col h-full bg-[#060d18] rounded-xl overflow-hidden border border-[#1a2538]">
-      {/* Tab Bar */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-[#1a2538] bg-[#0a1628]/50">
-        <Briefcase size={14} strokeWidth={1.5} className="text-blue-400 mr-2" />
-        <span className="text-white text-sm font-medium mr-4">The Office</span>
-        {SUB_TABS.map(tab => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
+      {/* ── Header Bar ──────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-[#1a2538] bg-[#0a1628]/50">
+        <div className="flex items-center gap-2">
+          <Briefcase size={14} strokeWidth={1.5} className="text-blue-400" />
+          <span className="text-white text-sm font-medium">The Office</span>
+          <span className="text-gray-600 text-[10px] ml-1">@stratify_hq</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-emerald-400 text-[10px]">Live</span>
+          <span className="text-gray-600 text-[10px] ml-2">
+            {Object.keys(feedData).length}/{CONTENT_TYPES.length} cached
+          </span>
+        </div>
+      </div>
+
+      {/* ── Split Screen ────────────────────────────────────── */}
+      <div className="flex flex-1 min-h-0">
+
+        {/* ── LEFT PANEL: Content Feed (55%) ────────────────── */}
+        <div className="w-[55%] flex flex-col border-r border-[#1a2538]">
+          {/* Filter pills */}
+          <div className="flex items-center gap-1 px-3 py-2 border-b border-[#1a2538] overflow-x-auto scrollbar-hide">
+            <Twitter size={11} strokeWidth={1.5} className="text-blue-400 mr-1 flex-shrink-0" />
+            {CONTENT_TYPES.map(type => {
+              const hasContent = !!feedData[type.id]?.content;
+              return (
+                <button
+                  key={type.id}
+                  onClick={() => {
+                    setSelectedType(type.id);
+                    setRightTab('preview');
+                    if (!hasContent) handleGenerate(type.id);
+                  }}
+                  className={`flex-shrink-0 px-2 py-1 rounded-md text-[10px] font-medium transition-all ${
+                    selectedType === type.id
+                      ? 'bg-[#0f1d32] text-white'
+                      : hasContent
+                        ? 'text-gray-400 hover:text-gray-200 hover:bg-[#0f1d32]/50'
+                        : 'text-gray-600 hover:text-gray-400 hover:bg-[#0f1d32]/30'
+                  }`}
+                >
+                  {type.label.split(' ').map(w => w[0]).join('')}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Feed list */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+            {loadingFeed ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-600">
+                <Loader2 size={20} className="animate-spin mb-2" />
+                <span className="text-xs">Loading content feed...</span>
+              </div>
+            ) : (
+              sortedTypes.map(type => (
+                <FeedCard
+                  key={type.id}
+                  type={type.id}
+                  data={feedData[type.id]}
+                  isSelected={selectedType === type.id}
+                  onClick={() => {
+                    setSelectedType(type.id);
+                    setRightTab('preview');
+                    if (!feedData[type.id]?.content) handleGenerate(type.id);
+                  }}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Cron status footer */}
+          <div className="px-3 py-2 border-t border-[#1a2538] flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-emerald-400 text-[9px]">Cron active · 10 posts/day</span>
+            </div>
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                isActive
+              onClick={() => {
+                CONTENT_TYPES.forEach(t => {
+                  if (!feedData[t.id]?.content) handleGenerate(t.id);
+                });
+              }}
+              className="text-gray-500 hover:text-gray-300 text-[9px] flex items-center gap-1 transition-colors"
+            >
+              <RefreshCw size={9} /> Generate all
+            </button>
+          </div>
+        </div>
+
+        {/* ── RIGHT PANEL: Preview & Chat (45%) ─────────────── */}
+        <div className="w-[45%] flex flex-col min-w-0">
+          {/* Right panel tabs */}
+          <div className="flex items-center gap-1 px-3 py-2 border-b border-[#1a2538]">
+            <button
+              onClick={() => setRightTab('preview')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                rightTab === 'preview'
                   ? 'bg-[#0f1d32] text-white'
                   : 'text-gray-400 hover:text-gray-200 hover:bg-[#0f1d32]/50'
               }`}
             >
-              <Icon size={12} strokeWidth={1.5} />
-              {tab.label}
+              <Eye size={11} strokeWidth={1.5} />
+              Preview
             </button>
-          );
-        })}
-      </div>
+            <button
+              onClick={() => setRightTab('chat')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                rightTab === 'chat'
+                  ? 'bg-[#0f1d32] text-white'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-[#0f1d32]/50'
+              }`}
+            >
+              <MessageSquare size={11} strokeWidth={1.5} />
+              Chat
+            </button>
 
-      {/* Content */}
-      <div className="flex-1 min-h-0">
-        {activeTab === 'engine' && <ContentEngineView />}
-        {activeTab === 'chat' && <ChatView />}
+            {/* Action buttons (only in preview mode with content) */}
+            {rightTab === 'preview' && selectedData?.content && (
+              <div className="flex items-center gap-1.5 ml-auto">
+                <button
+                  onClick={() => handleGenerate(selectedType, true)}
+                  disabled={generating}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-gray-400 hover:text-white hover:bg-[#1a2538] transition-all"
+                  title="Regenerate (bypass cache)"
+                >
+                  <RefreshCw size={10} strokeWidth={1.5} className={generating ? 'animate-spin' : ''} />
+                </button>
+                <button
+                  onClick={handlePost}
+                  disabled={posting}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-medium transition-all ${
+                    posting
+                      ? 'bg-[#1a2538] text-gray-500'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  {posting ? (
+                    <RefreshCw size={10} className="animate-spin" />
+                  ) : (
+                    <Send size={10} strokeWidth={1.5} />
+                  )}
+                  {posting ? 'Posting...' : 'Post to X'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Right panel content */}
+          <div className="flex-1 min-h-0">
+            {rightTab === 'preview' ? (
+              <div className="h-full overflow-y-auto">
+                {generating && (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-600">
+                    <RefreshCw size={20} className="animate-spin mb-2 text-blue-400" />
+                    <span className="text-xs">Generating with live data...</span>
+                    <span className="text-[10px] text-gray-600 mt-1">Twelve Data → Claude AI</span>
+                  </div>
+                )}
+
+                {!generating && tweets.length > 0 && (
+                  <div className="p-4 space-y-3">
+                    {/* Header */}
+                    {selectedConfig && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center"
+                          style={{ backgroundColor: `${selectedConfig.color}15` }}
+                        >
+                          <selectedConfig.icon size={14} strokeWidth={1.5} style={{ color: selectedConfig.color }} />
+                        </div>
+                        <div>
+                          <div className="text-white text-sm font-medium">{selectedConfig.label}</div>
+                          <div className="text-gray-500 text-[10px]">
+                            {selectedData?.generatedAt
+                              ? `Generated ${getTimeAgo(new Date(selectedData.generatedAt))}`
+                              : ''}
+                            {selectedData?.fromCache && ' · from cache'}
+                            {selectedData?.marketData && ` · ${selectedData.marketData}`}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Post result */}
+                    {postResult && (
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
+                        postResult.error
+                          ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      }`}>
+                        {postResult.error ? (
+                          <><XCircle size={12} /> {postResult.error}</>
+                        ) : (
+                          <><CheckCircle size={12} /> Posted {postResult.tweetCount} tweet{postResult.tweetCount > 1 ? 's' : ''} to X</>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tweets */}
+                    {tweets.map((tweet, i) => (
+                      <TweetPreview
+                        key={i}
+                        text={tweet}
+                        isThread={tweets.length > 1}
+                        index={i}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {!generating && tweets.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-600">
+                    <div className="w-12 h-12 rounded-2xl bg-[#0f1d32] flex items-center justify-center mb-3">
+                      <Sparkles size={20} strokeWidth={1.5} className="text-gray-500" />
+                    </div>
+                    <span className="text-xs mb-1">Select a post to preview</span>
+                    <span className="text-[10px] text-gray-700">
+                      Or click a pending item to generate
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <ChatView />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
