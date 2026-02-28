@@ -107,7 +107,7 @@ function FeedCard({ type, data, isSelected, onClick }) {
         >
           <Icon size={12} strokeWidth={1.5} style={{ color: config.color }} />
         </div>
-        <span className="text-white text-xs font-medium flex-1 truncate">{config.label}</span>
+        <span className="text-white text-sm font-medium flex-1 truncate">{config.label}</span>
         {data?.content ? (
           <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
             data.fromCache
@@ -123,16 +123,16 @@ function FeedCard({ type, data, isSelected, onClick }) {
         )}
       </div>
       {preview ? (
-        <p className="text-gray-400 text-[11px] leading-relaxed line-clamp-2 ml-8">
+        <p className="text-gray-300 text-xs leading-relaxed line-clamp-2 ml-8">
           {preview}
         </p>
       ) : (
-        <p className="text-gray-600 text-[11px] ml-8 italic">Click to generate</p>
+        <p className="text-gray-500 text-xs ml-8 italic">Click to generate</p>
       )}
       {timeAgo && (
         <div className="flex items-center gap-1.5 mt-1.5 ml-8">
           <Clock size={9} className="text-gray-600" />
-          <span className="text-gray-600 text-[9px]">{timeAgo}</span>
+          <span className="text-gray-500 text-[11px]">{timeAgo}</span>
           {tweets.length > 1 && (
             <span className="text-gray-600 text-[9px]">· {tweets.length} tweets</span>
           )}
