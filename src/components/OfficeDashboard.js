@@ -489,7 +489,7 @@ export default function OfficeDashboard() {
                     selectedType === type.id
                       ? 'bg-[#0f1d32] text-white'
                       : hasContent
-                        ? 'text-gray-400 hover:text-gray-200 hover:bg-[#0f1d32]/50'
+                        ? 'text-gray-200 hover:text-white hover:bg-[#0f1d32]/50'
                         : 'text-gray-600 hover:text-gray-400 hover:bg-[#0f1d32]/30'
                   }`}
                 >
