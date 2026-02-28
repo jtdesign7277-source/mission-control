@@ -151,6 +151,99 @@ function getTimeAgo(date) {
 }
 
 // ─── Chat View ─────────────────────────────────────────────
+
+// ─── Compose View (Write & Post Custom Tweet) ──────────────
+function ComposeView() {
+  const [tweetText, setTweetText] = useState('');
+  const [postingTweet, setPostingTweet] = useState(false);
+  const [postStatus, setPostStatus] = useState(null);
+  const charLimit = 280;
+  const charCount = tweetText.length;
+  const isOverLimit = charCount > charLimit;
+
+  const handlePostTweet = async () => {
+    if (!tweetText.trim() || isOverLimit || postingTweet) return;
+    setPostingTweet(true);
+    setPostStatus(null);
+    try {
+      const res = await fetch('https://stratifymarket.com/api/x-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tweet: tweetText.trim() }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPostStatus({ success: true, message: 'Posted to X!' });
+      setTweetText('');
+    } catch (err) {
+      setPostStatus({ success: false, message: err.message });
+    } finally {
+      setPostingTweet(false);
+    }
+  };
+
+  const openInX = () => {
+    const encoded = encodeURIComponent(tweetText);
+    window.open(`https://twitter.com/intent/tweet?text=${encoded}`, '_blank');
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex-1 p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0">
+            <span className="text-white text-sm font-bold">S</span>
+          </div>
+          <div>
+            <div className="text-white text-sm font-medium">Stratify</div>
+            <div className="text-gray-500 text-[10px]">@stratify_hq</div>
+          </div>
+        </div>
+        <textarea
+          value={tweetText}
+          onChange={e => setTweetText(e.target.value)}
+          placeholder="What's happening in the markets?"
+          className="w-full h-40 bg-[#060d18] border border-[#1a2538] rounded-xl p-3 text-gray-200 text-sm placeholder-gray-600 outline-none resize-none focus:border-blue-500/50 transition-colors"
+        />
+        <div className="flex items-center justify-between mt-2">
+          <span className={`text-[10px] font-mono ${isOverLimit ? 'text-red-400' : charCount > 250 ? 'text-amber-400' : 'text-gray-600'}`}>
+            {charCount}/{charLimit}
+          </span>
+          {postStatus && (
+            <span className={`text-[10px] ${postStatus.success ? 'text-emerald-400' : 'text-red-400'}`}>
+              {postStatus.message}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="border-t border-[#1a2538] p-3 flex items-center justify-end gap-2">
+        <button
+          onClick={openInX}
+          disabled={!tweetText.trim()}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            tweetText.trim() ? 'text-blue-400 hover:bg-blue-500/10 border border-blue-500/20' : 'text-gray-600 border border-[#1a2538]'
+          }`}
+        >
+          <ExternalLink size={11} strokeWidth={1.5} />
+          Open in X
+        </button>
+        <button
+          onClick={handlePostTweet}
+          disabled={!tweetText.trim() || isOverLimit || postingTweet}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            tweetText.trim() && !isOverLimit && !postingTweet
+              ? 'bg-blue-500 hover:bg-blue-600 text-white'
+              : 'bg-[#1a2538] text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          {postingTweet ? <RefreshCw size={11} className="animate-spin" /> : <Send size={11} strokeWidth={1.5} />}
+          {postingTweet ? 'Posting...' : 'Post to X'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ChatView() {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: "Hey! I'm your Stratify content assistant. I can help you draft tweets, brainstorm marketing strategies, analyze setups, or plan campaigns for @stratify_hq. What are you working on?" }
@@ -381,7 +474,7 @@ export default function OfficeDashboard() {
         <div className="w-[55%] flex flex-col border-r border-[#1a2538]">
           {/* Filter pills */}
           <div className="flex items-center gap-1 px-3 py-2 border-b border-[#1a2538] overflow-x-auto scrollbar-hide">
-            <Twitter size={11} strokeWidth={1.5} className="text-blue-400 mr-1 flex-shrink-0" />
+            
             {CONTENT_TYPES.map(type => {
               const hasContent = !!feedData[type.id]?.content;
               return (
@@ -474,6 +567,17 @@ export default function OfficeDashboard() {
             >
               <MessageSquare size={11} strokeWidth={1.5} />
               Chat
+            </button>
+            <button
+              onClick={() => setRightTab("compose")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                rightTab === "compose"
+                  ? "bg-[#0f1d32] text-white"
+                  : "text-gray-400 hover:text-gray-200 hover:bg-[#0f1d32]/50"
+              }`}
+            >
+              <Twitter size={11} strokeWidth={1.5} />
+              Compose
             </button>
 
             {/* Action buttons (only in preview mode with content) */}
@@ -582,8 +686,10 @@ export default function OfficeDashboard() {
                   </div>
                 )}
               </div>
-            ) : (
+            ) : rightTab === 'chat' ? (
               <ChatView />
+            ) : (
+              <ComposeView />
             )}
           </div>
         </div>
