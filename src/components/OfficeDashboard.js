@@ -376,7 +376,7 @@ export default function OfficeDashboard() {
       setLoadingFeed(true);
       const results = await Promise.allSettled(
         CONTENT_TYPES.map(async (type) => {
-          const res = await fetch(`/api/generate-content?type=${type.id}`);
+          const res = await fetch(`/api/generate-content?type=${type.id}&cacheOnly=true`);
           if (!res.ok) return { type: type.id, data: null };
           const data = await res.json();
           return { type: type.id, data };
@@ -493,7 +493,7 @@ export default function OfficeDashboard() {
                         : 'text-gray-600 hover:text-gray-400 hover:bg-[#0f1d32]/30'
                   }`}
                 >
-                  {type.label.split(' ').map(w => w[0]).join('')}
+                  {type.label}
                 </button>
               );
             })}
