@@ -1,76 +1,68 @@
 // /api/generate-content/route.js
-// Generates live market content for The Office Content Engine
-// Uses Claude API with web search for real-time data
+// Fetches LIVE market data from Twelve Data, then Claude formats into posts
 
 export const maxDuration = 30;
 
+const MARKET_TICKERS = ['SPY', 'QQQ', 'DIA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
+const CRYPTO_TICKERS = ['BTC/USD', 'ETH/USD', 'SOL/USD'];
+
+async function fetchTwelveData(symbols, apiKey) {
+  try {
+    const results = {};
+    const stockSymbols = symbols.filter(s => !s.includes('/'));
+    if (stockSymbols.length > 0) {
+      const stockRes = await fetch(
+        `https://api.twelvedata.com/quote?symbol=${stockSymbols.join(',')}&apikey=${apiKey}`
+      );
+      const stockData = await stockRes.json();
+      if (stockSymbols.length === 1) {
+        if (stockData.symbol) results[stockData.symbol] = stockData;
+      } else {
+        for (const sym of stockSymbols) {
+          if (stockData[sym] && !stockData[sym].code) results[sym] = stockData[sym];
+        }
+      }
+    }
+    const cryptoSymbols = symbols.filter(s => s.includes('/'));
+    for (const crypto of cryptoSymbols) {
+      try {
+        const cryptoRes = await fetch(
+          `https://api.twelvedata.com/quote?symbol=${crypto}&apikey=${apiKey}`
+        );
+        const cryptoData = await cryptoRes.json();
+        if (cryptoData.symbol) results[crypto] = cryptoData;
+      } catch (e) { console.warn(`Failed to fetch ${crypto}`); }
+    }
+    return results;
+  } catch (err) {
+    console.error('Twelve Data fetch error:', err);
+    return {};
+  }
+}
+
+function formatMarketSnapshot(quotes) {
+  let snapshot = '=== LIVE MARKET DATA (from Twelve Data) ===\n\n';
+  for (const [symbol, data] of Object.entries(quotes)) {
+    if (!data || data.code) continue;
+    const price = parseFloat(data.close || data.price || 0);
+    const prevClose = parseFloat(data.previous_close || 0);
+    const change = prevClose ? ((price - prevClose) / prevClose * 100).toFixed(2) : '0.00';
+    const direction = parseFloat(change) >= 0 ? '+' : '';
+    snapshot += `${symbol}: $${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${direction}${change}%)\n`;
+    if (data.volume) snapshot += `  Volume: ${parseInt(data.volume).toLocaleString()}\n`;
+  }
+  return snapshot;
+}
+
 const TEMPLATE_PROMPTS = {
-  'morning-briefing': `You are @stratify_hq, a professional trading social media account. Generate a MARKET OPEN BRIEFING for today using REAL current data. Search the web for:
-- Overnight futures (S&P 500 ES, Nasdaq NQ, Russell 2000)
-- Current VIX level
-- Key economic data releases today
-- Notable earnings reports today
-- Pre-market movers and catalysts
-
-Format as a Twitter thread. First tweet is the summary with emoji bullets. Follow-up tweets cover: Overnight Futures, Earnings Today, Econ Data, Key Levels to Watch. Use real numbers. Keep each tweet under 280 chars.`,
-
-  'technical-setups': `You are @stratify_hq. Generate TECHNICAL SETUPS for today using REAL current data. Search for:
-- Stocks at key breakout levels today
-- Notable support/resistance levels for SPY, QQQ, major stocks
-- RSI/MACD signals on popular tickers
-- Sector rotation patterns
-
-Format as a Twitter thread. First tweet summarizes the setups. Follow-up tweets each cover one specific setup with entry/target/stop levels. Use real tickers and prices.`,
-
-  'top-movers': `You are @stratify_hq. Generate TOP MOVERS post using REAL current market data. Search for:
-- Biggest percentage gainers in the stock market today
-- Biggest percentage losers today
-- The catalysts behind each move (earnings, upgrades, news)
-- Notable volume spikes
-
-Format as a Twitter thread. First tweet is the summary. Follow-ups cover top 3 gainers and top 3 losers with % moves and catalysts.`,
-
-  'midday-update': `You are @stratify_hq. Generate a MIDDAY UPDATE using REAL current data. Search for:
-- Current S&P 500, Nasdaq, Dow performance today
-- Sector performance (tech, energy, financials, healthcare)
-- Notable midday movers
-- Any breaking news affecting markets
-
-Format as a Twitter thread. First tweet is market snapshot. Follow-ups cover sectors and notable moves.`,
-
-  'power-hour': `You are @stratify_hq. Generate a POWER HOUR post using current market data. Search for:
-- Current market levels heading into close
-- Momentum stocks in the last hour
-- Volume patterns
-- Key levels for SPY/QQQ into close
-
-Format as a Twitter thread. First tweet is the setup. Follow-ups cover momentum plays and levels to watch.`,
-
-  'market-recap': `You are @stratify_hq. Generate a full MARKET RECAP for today using REAL data. Search for:
-- Closing prices for SPY, QQQ, DIA and % changes
-- Sector performance breakdown
-- Top gainers and losers of the day
-- Notable earnings after the bell
-- VIX close
-- Key takeaways
-
-Format as a Twitter thread. First tweet is the closing summary. Follow-ups cover sector performance, movers, and earnings.`,
-
-  'ah-movers': `You are @stratify_hq. Generate an AFTER HOURS MOVERS post. Search for:
-- Stocks moving in after-hours trading
-- Earnings reports released after market close
-- Earnings beats and misses with actual vs expected numbers
-- Guidance updates
-
-Format as a Twitter thread. First tweet summarizes AH action. Follow-ups cover each major earnings report.`,
-
-  'weekend-watchlist': `You are @stratify_hq. Generate a WEEKEND WATCHLIST for next week. Search for:
-- Major earnings reports next week
-- Economic calendar events next week (CPI, FOMC, jobs data, etc.)
-- Stocks at interesting technical levels heading into next week
-- Any geopolitical or macro events to watch
-
-Format as a Twitter thread. First tweet is the overview. Follow-ups cover earnings calendar, econ events, and technical setups.`,
+  'morning-briefing': `Generate a MARKET OPEN BRIEFING for @stratify_hq using the live data provided AND search the web for: overnight futures, key economic data releases today, notable earnings reports today, pre-market catalysts. Format: First tweet is summary with emoji bullets. Thread covers Futures/Levels, Earnings, Econ Data, Key Levels. Use EXACT prices from live data.`,
+  'technical-setups': `Generate TECHNICAL SETUPS for @stratify_hq using live data AND search for: breakout levels, key support/resistance for SPY/QQQ, RSI/MACD signals, sector rotation. Format: First tweet summarizes. Thread covers individual setups with entry/target/stop using REAL prices.`,
+  'top-movers': `Generate TOP MOVERS for @stratify_hq. Use live data AND search for: biggest % gainers and losers TODAY, catalysts, volume spikes. Format: First tweet summary. Thread covers top 3 gainers, top 3 losers with % moves and catalysts.`,
+  'midday-update': `Generate MIDDAY UPDATE for @stratify_hq using live data AND search for: sector performance, breaking midday news, momentum shifts. Format: First tweet is market snapshot with exact SPY/QQQ/DIA levels. Thread covers sectors and moves.`,
+  'power-hour': `Generate POWER HOUR post for @stratify_hq using live data AND search for: momentum into close, key levels, volume trends. Format: First tweet sets the scene. Thread covers levels and momentum plays.`,
+  'market-recap': `Generate MARKET RECAP for @stratify_hq using live data AND search for: full day summary, sector breakdown, AH earnings, VIX. Format: First tweet is closing summary with exact prices. Thread covers sectors, movers, earnings.`,
+  'ah-movers': `Generate AFTER HOURS MOVERS for @stratify_hq. Search for: AH movers, earnings beats/misses with actual vs expected, guidance. Format: First tweet summarizes AH action. Thread covers each major report.`,
+  'weekend-watchlist': `Generate WEEKEND WATCHLIST for @stratify_hq using current prices AND search for: major earnings next week, econ calendar, stocks at key technical levels. Format: First tweet overview. Thread covers earnings, econ events, setups with REAL prices.`,
 };
 
 export async function GET(request) {
@@ -78,22 +70,30 @@ export async function GET(request) {
   const type = searchParams.get('type');
 
   if (!type || !TEMPLATE_PROMPTS[type]) {
-    return Response.json({ error: `Invalid type: ${type}. Valid types: ${Object.keys(TEMPLATE_PROMPTS).join(', ')}` }, { status: 400 });
+    return Response.json({ error: `Invalid type: ${type}` }, { status: 400 });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return Response.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
-  }
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const twelveKey = process.env.TWELVE_DATA_API_KEY;
+
+  if (!anthropicKey) return Response.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
+  if (!twelveKey) return Response.json({ error: 'TWELVE_DATA_API_KEY not configured' }, { status: 500 });
 
   try {
-    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    // Step 1: Fetch LIVE prices from Twelve Data
+    const quotes = await fetchTwelveData([...MARKET_TICKERS, ...CRYPTO_TICKERS], twelveKey);
+    const marketSnapshot = formatMarketSnapshot(quotes);
 
+    const today = new Date().toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+
+    // Step 2: Send live data + template to Claude with web search
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
+        'x-api-key': anthropicKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
@@ -102,12 +102,18 @@ export async function GET(request) {
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{
           role: 'user',
-          content: `Today is ${today}. ${TEMPLATE_PROMPTS[type]}
+          content: `Today is ${today}.
+
+Here is LIVE market data pulled just now from Twelve Data (use these EXACT prices):
+
+${marketSnapshot}
+
+TASK: ${TEMPLATE_PROMPTS[type]}
 
 IMPORTANT: Return ONLY a JSON array of tweet strings. No markdown, no backticks, no explanation. Just the raw JSON array like:
 ["First tweet text here", "Second tweet text here", "Third tweet text here"]
 
-Each tweet must be under 280 characters. Use real current data from your web search.`
+Each tweet MUST be under 280 characters. Use the EXACT prices from the live data above. Supplement with web search for news, earnings, and catalysts.`
         }],
       }),
     });
@@ -119,25 +125,16 @@ Each tweet must be under 280 characters. Use real current data from your web sea
     }
 
     const data = await res.json();
+    const textBlocks = data.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
 
-    // Extract text from Claude response (may have multiple content blocks)
-    const textBlocks = data.content
-      .filter(block => block.type === 'text')
-      .map(block => block.text)
-      .join('\n');
-
-    // Parse the JSON array of tweets
     let tweets;
     try {
-      // Clean up any markdown fencing
       const cleaned = textBlocks.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       tweets = JSON.parse(cleaned);
     } catch (parseErr) {
-      // If JSON parse fails, split by double newline as fallback
-      tweets = textBlocks.split(/\n\n+/).filter(t => t.trim().length > 0);
+      tweets = textBlocks.split(/\n\n+/).filter(t => t.trim().length > 0 && t.trim() !== '[]');
     }
 
-    // Format into the structure the frontend expects
     if (!Array.isArray(tweets) || tweets.length === 0) {
       return Response.json({ error: 'Failed to generate content' }, { status: 500 });
     }
@@ -151,6 +148,7 @@ Each tweet must be under 280 characters. Use real current data from your web sea
       type,
       generatedAt: new Date().toISOString(),
       tweetCount: tweets.length,
+      marketData: Object.keys(quotes).length + ' symbols loaded',
     });
 
   } catch (err) {
