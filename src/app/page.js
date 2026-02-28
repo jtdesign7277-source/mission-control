@@ -2275,7 +2275,7 @@ export default function MissionControlPage() {
             {activeView === 'tiktok' && <TikTokDashboard />}
             {activeView === 'skills' && <SkillsDashboard />}
             {activeView === 'sentry' && <SentryDashboard />}
-            {activeView === 'office' && <OfficeDashboard />}
+            {activeView === 'office' && <div className="h-[calc(100vh-280px)] min-h-[600px]"><OfficeDashboard /></div>}
 
             {activeView === 'toolkit' && (
               <section className="rounded-2xl border border-white/10 bg-black/30 p-4">
